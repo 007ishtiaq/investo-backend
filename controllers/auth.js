@@ -81,7 +81,7 @@ exports.sendOTP = async (req, res) => {
       const mailOptions = {
         from: "Your App <ishtiaqahmad427427@gmail.com>",
         to: email,
-        subject: "Crystoos [OTP Code]",
+        subject: "Investo [OTP Code]",
         // text: `Your OTP code is ${otp}. It will expire in 10 minutes.`,
         html: otpEmailtemplate((otpCode = otp)),
       };
