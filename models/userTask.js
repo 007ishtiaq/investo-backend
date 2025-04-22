@@ -17,9 +17,6 @@ const userTaskSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    completedAt: {
-      type: Date,
-    },
     completed: {
       type: Boolean,
       default: false,
@@ -28,18 +25,21 @@ const userTaskSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    verificationData: {
-      type: Object,
-    },
+    completedAt: Date,
     reward: {
       type: Number,
-      default: 0,
+      required: true,
+    },
+    verificationData: {
+      type: Object,
+      default: {},
+    },
+    // Add field to store screenshot URL
+    screenshot: {
+      type: String,
     },
   },
   { timestamps: true }
 );
-
-// Ensure each user can only have one record per task
-userTaskSchema.index({ userId: 1, taskId: 1 }, { unique: true });
 
 module.exports = mongoose.model("UserTask", userTaskSchema);

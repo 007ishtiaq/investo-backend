@@ -12,15 +12,6 @@ const taskSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    steps: {
-      type: [String],
-      required: true,
-    },
-    reward: {
-      type: Number,
-      required: true,
-      default: 0.001,
-    },
     type: {
       type: String,
       enum: [
@@ -29,15 +20,12 @@ const taskSchema = new mongoose.Schema(
         "youtube_subscribe",
         "youtube_watch",
         "telegram_join",
+        "screenshot", // Add this new type
         "login",
         "profile",
         "custom",
       ],
       required: true,
-    },
-    link: {
-      type: String,
-      trim: true,
     },
     difficulty: {
       type: String,
@@ -46,11 +34,28 @@ const taskSchema = new mongoose.Schema(
     },
     estimatedTime: {
       type: String,
-      default: "5 min",
+      default: "5 mins",
     },
+    reward: {
+      type: Number,
+      required: true,
+      min: 0.001,
+    },
+    externalUrl: String,
+    requirements: [String],
+    note: String,
     active: {
       type: Boolean,
       default: true,
+    },
+    // Add fields for screenshot requirements
+    screenshotRequired: {
+      type: Boolean,
+      default: false,
+    },
+    screenshotInstructions: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true }

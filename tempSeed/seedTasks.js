@@ -104,6 +104,87 @@ const sampleTasks = [
     estimatedTime: "5 min",
     active: true,
   },
+  {
+    title: "Share your investment portfolio screenshot",
+    description:
+      "Take a screenshot of your investment portfolio in any trading app and share it with us.",
+    type: "screenshot",
+    difficulty: "easy",
+    estimatedTime: "2 mins",
+    reward: 0.015,
+    requirements: [
+      "Open your trading app or investment platform",
+      "Navigate to your portfolio overview",
+      "Take a clear screenshot showing your investments",
+      "Upload the screenshot here",
+    ],
+    note: "Your data is kept confidential and only used to verify task completion. Feel free to blur any sensitive information.",
+    active: true,
+    screenshotRequired: true,
+    screenshotInstructions:
+      "Screenshot must clearly show a portfolio overview with asset names and values visible.",
+  },
+  {
+    title: "Verify app installation",
+    description:
+      "Install our mobile app and provide a screenshot of the installed app on your home screen.",
+    type: "screenshot",
+    difficulty: "easy",
+    estimatedTime: "5 mins",
+    reward: 0.01,
+    externalUrl: "https://play.google.com/store/apps/details?id=com.ourapp",
+    requirements: [
+      "Install our app from the App Store or Google Play",
+      "Open the app and complete the initial setup",
+      "Take a screenshot showing the app installed on your device",
+      "Upload the screenshot for verification",
+    ],
+    note: "Make sure the app icon is clearly visible in your screenshot.",
+    active: true,
+    screenshotRequired: true,
+    screenshotInstructions:
+      "The screenshot should show our app icon on your device's home screen or app drawer.",
+  },
+  {
+    title: "Complete a practice trade",
+    description:
+      "Make a practice trade on our platform and take a screenshot of the confirmed transaction.",
+    type: "screenshot",
+    difficulty: "medium",
+    estimatedTime: "10 mins",
+    reward: 0.025,
+    externalUrl: "https://practice.ourinvestmentplatform.com",
+    requirements: [
+      "Login to our practice trading platform",
+      "Execute a sample trade of any cryptocurrency",
+      "Take a screenshot of the transaction confirmation",
+      "Upload the screenshot for verification",
+    ],
+    note: "This task helps you familiarize yourself with our trading interface.",
+    active: true,
+    screenshotRequired: true,
+    screenshotInstructions:
+      "Screenshot must show transaction details including asset name, amount, and confirmation status.",
+  },
+  {
+    title: "Set price alerts for 3 cryptocurrencies",
+    description:
+      "Configure price alerts for at least 3 different cryptocurrencies on our platform.",
+    type: "screenshot",
+    difficulty: "medium",
+    estimatedTime: "7 mins",
+    reward: 0.02,
+    requirements: [
+      "Navigate to the price alerts section",
+      "Set up alerts for at least 3 different cryptocurrencies",
+      "Take a screenshot showing all configured alerts",
+      "Upload the screenshot for verification",
+    ],
+    active: true,
+    screenshotRequired: true,
+    screenshotInstructions:
+      "Your screenshot should clearly show at least 3 different price alerts set up on our platform.",
+  },
 ];
 
 const seedTasks = async () => {

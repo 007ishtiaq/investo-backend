@@ -3,6 +3,7 @@ const Task = require("../models/tasks");
 const UserTask = require("../models/userTask");
 const User = require("../models/user");
 const mongoose = require("mongoose");
+const cloudinary = require("cloudinary").v2;
 
 // Create a new task (admin only)
 exports.createTask = async (req, res) => {
@@ -327,13 +328,24 @@ exports.rejectTask = async (req, res) => {
   }
 };
 
+// Configure cloudinary (add this to your server setup or configure it in your task controller)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Update your verifyTask controller function
 exports.verifyTask = async (req, res) => {
   console.log("Verifying task");
 
   try {
-    const { taskId } = req.params; // Use id to match your route parameter (:id)
+    const { id } = req.params;
     const { email } = req.user; // Get email from Firebase user
     const verificationData = req.body;
+
+    // For debugging
+    console.log("Verification data received:", verificationData);
 
     // Find the user in the database
     const user = await User.findOne({ email });
@@ -344,7 +356,7 @@ exports.verifyTask = async (req, res) => {
     }
 
     // Check if task exists
-    const task = await Task.findById(taskId);
+    const task = await Task.findById(id);
     if (!task) {
       return res
         .status(404)
@@ -352,13 +364,13 @@ exports.verifyTask = async (req, res) => {
     }
 
     // Check if user has started this task
-    let userTask = await UserTask.findOne({ userId: user._id, taskId: taskId });
+    let userTask = await UserTask.findOne({ userId: user._id, taskId: id });
 
     if (!userTask) {
       // If not started, create and start it now
       userTask = new UserTask({
         userId: user._id,
-        taskId: taskId,
+        taskId: id,
         startedAt: new Date(),
         reward: task.reward,
         completed: false,
@@ -374,45 +386,76 @@ exports.verifyTask = async (req, res) => {
     // Perform verification based on task type
     let isVerified = false;
 
-    switch (task.type) {
-      case "twitter_follow":
-      case "twitter_share":
-        // Twitter verification logic
-        isVerified =
-          verificationData.tweetUrl &&
-          verificationData.tweetUrl.includes("twitter.com");
-        break;
+    // Special handling for screenshot verification
+    if (task.type === "screenshot") {
+      // Check if screenshot was provided
+      if (verificationData.screenshot) {
+        try {
+          // Upload to cloudinary
+          const uploadResult = await cloudinary.uploader.upload(
+            verificationData.screenshot,
+            {
+              folder: `tasks/${user._id}`,
+              resource_type: "auto",
+            }
+          );
 
-      case "youtube_subscribe":
-        // YouTube subscription verification logic
-        isVerified =
-          verificationData.channelUrl &&
-          verificationData.channelUrl.includes("youtube.com");
-        break;
+          console.log("Screenshot uploaded:", uploadResult.secure_url);
 
-      case "youtube_watch":
-        // YouTube watch verification logic
-        isVerified =
-          verificationData.videoUrl &&
-          verificationData.videoUrl.includes("youtube.com/watch");
-        break;
+          // Store the image URL in the userTask
+          userTask.screenshot = uploadResult.secure_url;
+          verificationData.screenshotUrl = uploadResult.secure_url;
+          isVerified = true;
+        } catch (error) {
+          console.error("Error uploading screenshot:", error);
+          return res.status(400).json({
+            success: false,
+            message: "Failed to upload screenshot. Please try again.",
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Screenshot is required for this task.",
+        });
+      }
+    } else {
+      // Handle other task types as before
+      switch (task.type) {
+        case "twitter_follow":
+        case "twitter_share":
+          isVerified =
+            verificationData.tweetUrl &&
+            verificationData.tweetUrl.includes("twitter.com");
+          break;
 
-      case "telegram_join":
-        // Telegram join verification logic
-        isVerified =
-          verificationData.username &&
-          verificationData.username.startsWith("@");
-        break;
+        case "youtube_subscribe":
+          isVerified =
+            verificationData.channelUrl &&
+            verificationData.channelUrl.includes("youtube.com");
+          break;
 
-      case "login":
-      case "profile":
-      case "custom":
-        // These tasks are auto-verified
-        isVerified = true;
-        break;
+        case "youtube_watch":
+          isVerified =
+            verificationData.videoUrl &&
+            verificationData.videoUrl.includes("youtube.com/watch");
+          break;
 
-      default:
-        isVerified = false;
+        case "telegram_join":
+          isVerified =
+            verificationData.username &&
+            verificationData.username.startsWith("@");
+          break;
+
+        case "login":
+        case "profile":
+        case "custom":
+          isVerified = true;
+          break;
+
+        default:
+          isVerified = false;
+      }
     }
 
     if (!isVerified) {
@@ -430,12 +473,11 @@ exports.verifyTask = async (req, res) => {
 
     await userTask.save();
 
-    // Update user's balance - check if walletBalance exists, if not initialize it
+    // Update user's balance
     if (!user.walletBalance) {
       user.walletBalance = 0;
     }
 
-    // Add the reward to the user's wallet balance
     user.walletBalance = (
       parseFloat(user.walletBalance) + parseFloat(task.reward)
     ).toFixed(5);
