@@ -159,12 +159,28 @@ exports.getTaskEarnings = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("Finding earnings for user:", user._id);
+
+    // Convert string ID to ObjectId if needed (use mongoose.Types.ObjectId)
+    const userId = user._id;
+
     const result = await UserTask.aggregate([
       {
-        $match: { userId: mongoose.Types.ObjectId(user._id), completed: true },
+        $match: {
+          userId: userId,
+          verified: true, // Make sure to check verified flag
+          completed: true, // Make sure to check completed flag
+        },
       },
-      { $group: { _id: null, totalEarnings: { $sum: "$reward" } } },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: "$reward" },
+        },
+      },
     ]);
+
+    console.log("Earnings calculation result:", result);
 
     const totalEarnings = result.length > 0 ? result[0].totalEarnings : 0;
 

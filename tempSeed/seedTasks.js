@@ -4,7 +4,8 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 // Replace with your MongoDB connection string
-const MONGODB_URI = process.env.DATABASE;
+const MONGODB_URI =
+  "mongodb://localhost:27017/MMIN?readPreference=primary&appname=MongoDB%20Compass&ssl=false";
 
 const sampleTasks = [
   {
