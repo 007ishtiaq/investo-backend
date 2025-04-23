@@ -50,14 +50,18 @@ exports.getTask = async (req, res) => {
 
 // Update a task (admin only)
 exports.updateTask = async (req, res) => {
+  // console.log("req.body", req.body);
+
   try {
-    const task = await Task.findByIdAndUpdate(req.params.id, req.body, {
+    const task = await Task.findByIdAndUpdate(req.params.taskId, req.body, {
       new: true,
       runValidators: true,
     });
+
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
+
     res.json(task);
   } catch (error) {
     console.error("Error updating task:", error);

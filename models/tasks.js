@@ -42,7 +42,7 @@ const taskSchema = new mongoose.Schema(
       min: 0.001,
     },
     externalUrl: String,
-    requirements: [String],
+    steps: [String],
     note: String,
     active: {
       type: Boolean,

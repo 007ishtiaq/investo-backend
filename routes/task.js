@@ -31,7 +31,7 @@ router.get("/user/tasks/earnings", authCheck, getTaskEarnings);
 
 // Admin routes (require admin privileges)
 router.post("/admin/tasks", authCheck, adminCheck, createTask);
-router.put("/admin/tasks/:id", authCheck, adminCheck, updateTask);
+router.put("/admin/tasks/:taskId", authCheck, adminCheck, updateTask);
 router.delete("/admin/tasks/:id", authCheck, adminCheck, deleteTask);
 router.get("/admin/tasks", authCheck, adminCheck, getAllTasksAdmin);
 router.get(
