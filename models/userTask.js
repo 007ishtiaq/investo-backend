@@ -49,6 +49,10 @@ const userTaskSchema = new mongoose.Schema(
     screenshot: {
       type: String,
     },
+    // Add field to store rejection reason
+    rejectionReason: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
