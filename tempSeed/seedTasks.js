@@ -112,7 +112,7 @@ const sampleTasks = [
     difficulty: "easy",
     estimatedTime: "2 mins",
     reward: 0.015,
-    requirements: [
+    steps: [
       "Open your trading app or investment platform",
       "Navigate to your portfolio overview",
       "Take a clear screenshot showing your investments",
@@ -133,7 +133,7 @@ const sampleTasks = [
     estimatedTime: "5 mins",
     reward: 0.01,
     externalUrl: "https://play.google.com/store/apps/details?id=com.ourapp",
-    requirements: [
+    steps: [
       "Install our app from the App Store or Google Play",
       "Open the app and complete the initial setup",
       "Take a screenshot showing the app installed on your device",
@@ -154,7 +154,7 @@ const sampleTasks = [
     estimatedTime: "10 mins",
     reward: 0.025,
     externalUrl: "https://practice.ourinvestmentplatform.com",
-    requirements: [
+    steps: [
       "Login to our practice trading platform",
       "Execute a sample trade of any cryptocurrency",
       "Take a screenshot of the transaction confirmation",
@@ -174,7 +174,7 @@ const sampleTasks = [
     difficulty: "medium",
     estimatedTime: "7 mins",
     reward: 0.02,
-    requirements: [
+    steps: [
       "Navigate to the price alerts section",
       "Set up alerts for at least 3 different cryptocurrencies",
       "Take a screenshot showing all configured alerts",
