@@ -13,7 +13,7 @@ const {
   getTaskEarnings,
   getAllTasksAdmin,
   getTaskCompletionStats,
-  getTasksAwaitingVerification,
+  getPendingVerificationTasks,
   approveTask,
   rejectTask,
 } = require("../controllers/task");
@@ -40,20 +40,23 @@ router.get(
   adminCheck,
   getTaskCompletionStats
 );
+
 router.get(
   "/admin/tasks/pending",
   authCheck,
   adminCheck,
-  getTasksAwaitingVerification
+  getPendingVerificationTasks
 );
+// Approve a task
 router.post(
-  "/admin/tasks/approve/:userTaskId",
+  "/admin/tasks/:userTaskId/approve",
   authCheck,
   adminCheck,
   approveTask
 );
+// Reject a task
 router.post(
-  "/admin/tasks/reject/:userTaskId",
+  "/admin/tasks/:userTaskId/reject",
   authCheck,
   adminCheck,
   rejectTask

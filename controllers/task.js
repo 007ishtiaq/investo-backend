@@ -248,86 +248,6 @@ exports.getTaskCompletionStats = async (req, res) => {
   }
 };
 
-// Add to task.js controller
-exports.getTasksAwaitingVerification = async (req, res) => {
-  try {
-    const pendingTasks = await UserTask.find({
-      status: "pending",
-      verificationData: { $exists: true },
-    })
-      .populate("taskId")
-      .populate("userId", "name email")
-      .sort({ createdAt: -1 });
-
-    res.json(pendingTasks);
-  } catch (error) {
-    console.error("Error getting pending tasks:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to get pending tasks", error: error.message });
-  }
-};
-
-exports.approveTask = async (req, res) => {
-  try {
-    const { userTaskId } = req.params;
-    const userTask = await UserTask.findById(userTaskId);
-
-    if (!userTask) {
-      return res.status(404).json({ message: "Task submission not found" });
-    }
-
-    const task = await Task.findById(userTask.taskId);
-
-    // Update user task status
-    userTask.status = "completed";
-    userTask.verifiedAt = new Date();
-    userTask.verifiedBy = req.user._id;
-    await userTask.save();
-
-    // Add reward to user's wallet
-    const user = await User.findById(userTask.userId);
-    user.walletBalance = (
-      parseFloat(user.walletBalance) + parseFloat(task.reward)
-    ).toFixed(5);
-    await user.save();
-
-    res.json({ message: "Task approved and reward issued", userTask });
-  } catch (error) {
-    console.error("Error approving task:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to approve task", error: error.message });
-  }
-};
-
-exports.rejectTask = async (req, res) => {
-  try {
-    const { userTaskId } = req.params;
-    const { rejectionReason } = req.body;
-
-    const userTask = await UserTask.findById(userTaskId);
-
-    if (!userTask) {
-      return res.status(404).json({ message: "Task submission not found" });
-    }
-
-    // Update user task status
-    userTask.status = "rejected";
-    userTask.rejectionReason = rejectionReason;
-    userTask.verifiedAt = new Date();
-    userTask.verifiedBy = req.user._id;
-    await userTask.save();
-
-    res.json({ message: "Task rejected", userTask });
-  } catch (error) {
-    console.error("Error rejecting task:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to reject task", error: error.message });
-  }
-};
-
 // Configure cloudinary (add this to your server setup or configure it in your task controller)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -340,7 +260,7 @@ exports.verifyTask = async (req, res) => {
   console.log("Verifying task");
 
   try {
-    const { id } = req.params;
+    const { taskId } = req.params;
     const { email } = req.user; // Get email from Firebase user
     const verificationData = req.body;
 
@@ -356,7 +276,7 @@ exports.verifyTask = async (req, res) => {
     }
 
     // Check if task exists
-    const task = await Task.findById(id);
+    const task = await Task.findById(taskId);
     if (!task) {
       return res
         .status(404)
@@ -364,13 +284,13 @@ exports.verifyTask = async (req, res) => {
     }
 
     // Check if user has started this task
-    let userTask = await UserTask.findOne({ userId: user._id, taskId: id });
+    let userTask = await UserTask.findOne({ userId: user._id, taskId: taskId });
 
     if (!userTask) {
       // If not started, create and start it now
       userTask = new UserTask({
         userId: user._id,
-        taskId: id,
+        taskId: taskId,
         startedAt: new Date(),
         reward: task.reward,
         completed: false,
@@ -385,6 +305,7 @@ exports.verifyTask = async (req, res) => {
 
     // Perform verification based on task type
     let isVerified = false;
+    let requiresManualVerification = false;
 
     // Special handling for screenshot verification
     if (task.type === "screenshot") {
@@ -405,7 +326,24 @@ exports.verifyTask = async (req, res) => {
           // Store the image URL in the userTask
           userTask.screenshot = uploadResult.secure_url;
           verificationData.screenshotUrl = uploadResult.secure_url;
-          isVerified = true;
+
+          // For screenshot tasks, we set this flag to true
+          // but don't mark as verified immediately
+          requiresManualVerification = true;
+
+          // Set status to "pending verification" instead of completing immediately
+          userTask.status = "pending_verification";
+          userTask.submittedAt = new Date();
+          userTask.verificationData = verificationData;
+
+          await userTask.save();
+
+          return res.json({
+            success: true,
+            message:
+              "Screenshot uploaded successfully. Waiting for admin verification.",
+            status: "pending_verification",
+          });
         } catch (error) {
           console.error("Error uploading screenshot:", error);
           return res.status(400).json({
@@ -458,14 +396,15 @@ exports.verifyTask = async (req, res) => {
       }
     }
 
-    if (!isVerified) {
+    if (!isVerified && !requiresManualVerification) {
       return res.status(400).json({
         success: false,
         message: "Verification failed. Please check your submission.",
       });
     }
 
-    // Update user task record
+    // Only reach here for non-screenshot tasks
+    // Update user task record for immediate verification
     userTask.completed = true;
     userTask.verified = true;
     userTask.completedAt = new Date();
@@ -473,7 +412,7 @@ exports.verifyTask = async (req, res) => {
 
     await userTask.save();
 
-    // Update user's balance
+    // Update user's balance for immediate verification
     if (!user.walletBalance) {
       user.walletBalance = 0;
     }
@@ -495,6 +434,101 @@ exports.verifyTask = async (req, res) => {
       success: false,
       message: "Failed to verify task",
       error: error.message,
+    });
+  }
+};
+
+// server/controllers/admin.js (create or update)
+
+// Get tasks pending verification
+exports.getPendingVerificationTasks = async (req, res) => {
+  try {
+    // Find all user tasks with status "pending_verification"
+    const pendingTasks = await UserTask.find({ status: "pending_verification" })
+      .populate("userId", "name email") // Get user details
+      .populate("taskId"); // Get task details
+
+    res.json(pendingTasks);
+  } catch (error) {
+    console.error("Error fetching pending verification tasks:", error);
+    res.status(500).json({
+      error: "Failed to fetch pending verification tasks",
+      message: error.message,
+    });
+  }
+};
+
+// Approve a task submission
+exports.approveTask = async (req, res) => {
+  try {
+    const { userTaskId } = req.params;
+
+    // Find the user task
+    const userTask = await UserTask.findById(userTaskId);
+    if (!userTask) {
+      return res.status(404).json({ error: "Task submission not found" });
+    }
+
+    // Update the task to completed status
+    userTask.status = "approved";
+    userTask.completed = true;
+    userTask.verified = true;
+    userTask.completedAt = new Date();
+    await userTask.save();
+
+    // Get the user and task details
+    const user = await User.findById(userTask.userId);
+    const task = await Task.findById(userTask.taskId);
+
+    // Issue the reward to the user
+    if (!user.walletBalance) {
+      user.walletBalance = 0;
+    }
+
+    user.walletBalance = (
+      parseFloat(user.walletBalance) + parseFloat(task.reward)
+    ).toFixed(5);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Task approved and reward issued",
+    });
+  } catch (error) {
+    console.error("Error approving task:", error);
+    res.status(500).json({
+      error: "Failed to approve task",
+      message: error.message,
+    });
+  }
+};
+
+// Reject a task submission
+exports.rejectTask = async (req, res) => {
+  try {
+    const { userTaskId } = req.params;
+    const { rejectionReason } = req.body;
+
+    // Find the user task
+    const userTask = await UserTask.findById(userTaskId);
+    if (!userTask) {
+      return res.status(404).json({ error: "Task submission not found" });
+    }
+
+    // Update the task to rejected status
+    userTask.status = "rejected";
+    userTask.rejectionReason = rejectionReason;
+    await userTask.save();
+
+    res.json({
+      success: true,
+      message: "Task submission rejected",
+    });
+  } catch (error) {
+    console.error("Error rejecting task:", error);
+    res.status(500).json({
+      error: "Failed to reject task",
+      message: error.message,
     });
   }
 };

@@ -34,6 +34,17 @@ const userTaskSchema = new mongoose.Schema(
       type: Object,
       default: {},
     },
+    status: {
+      type: String,
+      enum: [
+        "started",
+        "pending_verification",
+        "approved",
+        "rejected",
+        "completed",
+      ],
+      default: "started",
+    },
     // Add field to store screenshot URL
     screenshot: {
       type: String,
