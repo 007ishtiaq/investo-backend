@@ -361,6 +361,27 @@ exports.verifyTask = async (req, res) => {
           message: "Screenshot is required for this task.",
         });
       }
+    } else if (task.type === "youtube_watch" && verificationData.autoVerified) {
+      // Handle YouTube auto-verification
+      console.log("Processing auto-verified YouTube watch task");
+
+      // Check if watched duration is sufficient
+      const watchedDuration = verificationData.watchedDuration || 0;
+      const requiredDuration = task.videoDuration || 0;
+
+      console.log(
+        `Watched: ${watchedDuration}s, Required: ${requiredDuration}s`
+      );
+
+      if (watchedDuration >= requiredDuration) {
+        isVerified = true;
+        console.log("Auto-verification successful - watched required duration");
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `You need to watch at least ${requiredDuration} seconds of the video.`,
+        });
+      }
     } else {
       // Handle other task types as before
       switch (task.type) {

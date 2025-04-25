@@ -20,7 +20,7 @@ const taskSchema = new mongoose.Schema(
         "youtube_subscribe",
         "youtube_watch",
         "telegram_join",
-        "screenshot", // Add this new type
+        "screenshot",
         "login",
         "profile",
         "custom",
@@ -48,7 +48,7 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    // Add fields for screenshot requirements
+    // Screenshot fields
     screenshotRequired: {
       type: Boolean,
       default: false,
@@ -56,6 +56,15 @@ const taskSchema = new mongoose.Schema(
     screenshotInstructions: {
       type: String,
       default: "",
+    },
+    // YouTube watch fields
+    autoVerify: {
+      type: Boolean,
+      default: false,
+    },
+    videoDuration: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }
