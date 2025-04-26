@@ -3,10 +3,10 @@ const mongoose = require("mongoose");
 
 const transactionSchema = new mongoose.Schema(
   {
-    userId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    email: {
+      type: String,
       required: true,
+      index: true,
     },
     walletId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -44,10 +44,7 @@ const transactionSchema = new mongoose.Schema(
       required: true,
     },
     metadata: {
-      taskId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Task",
-      },
+      taskId: mongoose.Schema.Types.ObjectId,
       // Other metadata can be added as needed
     },
     reference: {

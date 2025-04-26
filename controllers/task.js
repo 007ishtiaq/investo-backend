@@ -4,6 +4,7 @@ const UserTask = require("../models/userTask");
 const User = require("../models/user");
 const mongoose = require("mongoose");
 const cloudinary = require("cloudinary").v2;
+const Wallet = require("../models/wallet"); // Import Wallet model
 
 // Create a new task (admin only)
 exports.createTask = async (req, res) => {
@@ -153,10 +154,16 @@ exports.getUserTasks = async (req, res) => {
   }
 };
 
-// Get user's task earnings
+// Get user's task earnings and wallet balance
 exports.getTaskEarnings = async (req, res) => {
   try {
-    const { email } = req.user; // Get email from Firebase user
+    const { email } = req.user;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ message: "Email not available in authentication" });
+    }
 
     // Find the user in the database
     const user = await User.findOne({ email });
@@ -165,16 +172,16 @@ exports.getTaskEarnings = async (req, res) => {
     }
 
     console.log("Finding earnings for user:", user._id);
+    console.log("Email for wallet lookup:", email);
 
-    // Convert string ID to ObjectId if needed (use mongoose.Types.ObjectId)
+    // Calculate task earnings using MongoDB ObjectId
     const userId = user._id;
-
     const result = await UserTask.aggregate([
       {
         $match: {
           userId: userId,
-          verified: true, // Make sure to check verified flag
-          completed: true, // Make sure to check completed flag
+          verified: true,
+          completed: true,
         },
       },
       {
@@ -185,11 +192,35 @@ exports.getTaskEarnings = async (req, res) => {
       },
     ]);
 
+    const totalEarnings = result.length > 0 ? result[0].totalEarnings : 0;
     console.log("Earnings calculation result:", result);
 
-    const totalEarnings = result.length > 0 ? result[0].totalEarnings : 0;
+    // Get wallet using email
+    let wallet = await Wallet.findOne({ email });
+    const walletBalance = wallet ? wallet.balance : 0;
 
-    res.json({ totalEarnings });
+    // If no wallet exists yet but user has earnings, create a wallet
+    if (!wallet && totalEarnings > 0) {
+      try {
+        const { createUserWallet } = require("./wallet");
+        wallet = await createUserWallet(email);
+        console.log(
+          `Created new wallet for user ${email} during earnings check`
+        );
+      } catch (walletError) {
+        console.error(
+          "Error creating wallet during earnings check:",
+          walletError
+        );
+      }
+    }
+
+    // Return both earnings and wallet balance
+    res.json({
+      totalEarnings,
+      walletBalance,
+      walletExists: !!wallet,
+    });
   } catch (error) {
     console.error("Error getting task earnings:", error);
     res
@@ -478,51 +509,6 @@ exports.getPendingVerificationTasks = async (req, res) => {
     console.error("Error fetching pending verification tasks:", error);
     res.status(500).json({
       error: "Failed to fetch pending verification tasks",
-      message: error.message,
-    });
-  }
-};
-
-// Approve a task submission
-exports.approveTask = async (req, res) => {
-  try {
-    const { userTaskId } = req.params;
-
-    // Find the user task
-    const userTask = await UserTask.findById(userTaskId);
-    if (!userTask) {
-      return res.status(404).json({ error: "Task submission not found" });
-    }
-
-    // Update the task to completed status
-    userTask.status = "approved";
-    userTask.completed = true;
-    userTask.verified = true;
-    userTask.completedAt = new Date();
-    await userTask.save();
-
-    // Get the user and task details
-    const user = await User.findById(userTask.userId);
-    const task = await Task.findById(userTask.taskId);
-
-    // Issue the reward to the user
-    if (!user.walletBalance) {
-      user.walletBalance = 0;
-    }
-
-    user.walletBalance = (
-      parseFloat(user.walletBalance) + parseFloat(task.reward)
-    ).toFixed(5);
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Task approved and reward issued",
-    });
-  } catch (error) {
-    console.error("Error approving task:", error);
-    res.status(500).json({
-      error: "Failed to approve task",
       message: error.message,
     });
   }

@@ -14,9 +14,8 @@ const {
   getAllTasksAdmin,
   getTaskCompletionStats,
   getPendingVerificationTasks,
-  approveTask,
-  rejectTask,
 } = require("../controllers/task");
+const { approveTask, rejectTask } = require("../controllers/admin");
 const { authCheck, adminCheck } = require("../middlewares/auth");
 
 // Public routes
