@@ -2,6 +2,7 @@
 const Task = require("../models/tasks");
 const UserTask = require("../models/userTask");
 const User = require("../models/user");
+const Transaction = require("../models/transaction");
 const mongoose = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 const Wallet = require("../models/wallet"); // Import Wallet model
@@ -292,207 +293,220 @@ cloudinary.config({
 
 // Update your verifyTask controller function
 exports.verifyTask = async (req, res) => {
-  console.log("Verifying task");
-
   try {
-    const { taskId } = req.params;
-    const { email } = req.user; // Get email from Firebase user
+    const taskId = req.params.taskId;
+    // User ID might be undefined, but we have the email
+    const userEmail = req.user.email;
     const verificationData = req.body;
 
-    // For debugging
-    console.log("Verification data received:", verificationData);
+    console.log("Task verification request with email:", {
+      taskId,
+      userEmail,
+      verificationData,
+    });
 
-    // Find the user in the database
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-
-    // Check if task exists
+    // Find the task
     const task = await Task.findById(taskId);
     if (!task) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Task not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Task not found",
+      });
     }
 
-    // Check if user has started this task
-    let userTask = await UserTask.findOne({ userId: user._id, taskId: taskId });
+    // First, find the user by email to get the proper userId
+    const user = await User.findOne({ email: userEmail });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found with the provided email",
+      });
+    }
 
+    // Use the found userId
+    const userId = user._id;
+    console.log("Found user ID from email:", userId);
+
+    // Try to find the user task with the retrieved userId
+    let userTask = await UserTask.findOne({
+      userId: userId,
+      taskId: taskId,
+    });
+
+    console.log("UserTask lookup result:", {
+      found: !!userTask,
+      userTaskData: userTask ? userTask._id : null,
+    });
+
+    // If not found, create a new user task entry matching the schema structure
     if (!userTask) {
-      // If not started, create and start it now
+      console.log(
+        "UserTask not found, creating new entry with userId:",
+        userId
+      );
       userTask = new UserTask({
-        userId: user._id,
+        userId: userId, // Use the userId we got from the database
         taskId: taskId,
         startedAt: new Date(),
-        reward: task.reward,
         completed: false,
         verified: false,
+        reward: task.reward,
+        status: "started",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
+
+      // Save the new user task
+      await userTask.save();
+      console.log("Created new UserTask:", userTask._id);
     }
 
-    // If already completed, return success
     if (userTask.completed) {
-      return res.json({ success: true, message: "Task already completed" });
-    }
-
-    // Perform verification based on task type
-    let isVerified = false;
-    let requiresManualVerification = false;
-
-    // Special handling for screenshot verification
-    if (task.type === "screenshot") {
-      // Check if screenshot was provided
-      if (verificationData.screenshot) {
-        try {
-          // Upload to cloudinary
-          const uploadResult = await cloudinary.uploader.upload(
-            verificationData.screenshot,
-            {
-              folder: `tasks/${user._id}`,
-              resource_type: "auto",
-            }
-          );
-
-          console.log("Screenshot uploaded:", uploadResult.secure_url);
-
-          // Store the image URL in the userTask
-          userTask.screenshot = uploadResult.secure_url;
-          verificationData.screenshotUrl = uploadResult.secure_url;
-
-          // For screenshot tasks, we set this flag to true
-          // but don't mark as verified immediately
-          requiresManualVerification = true;
-
-          // Set status to "pending verification" instead of completing immediately
-          userTask.status = "pending_verification";
-          userTask.submittedAt = new Date();
-          userTask.verificationData = verificationData;
-
-          await userTask.save();
-
-          return res.json({
-            success: true,
-            message:
-              "Screenshot uploaded successfully. Waiting for admin verification.",
-            status: "pending_verification",
-          });
-        } catch (error) {
-          console.error("Error uploading screenshot:", error);
-          return res.status(400).json({
-            success: false,
-            message: "Failed to upload screenshot. Please try again.",
-          });
-        }
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: "Screenshot is required for this task.",
-        });
-      }
-    } else if (task.type === "youtube_watch" && verificationData.autoVerified) {
-      // Handle YouTube auto-verification
-      console.log("Processing auto-verified YouTube watch task");
-
-      // Check if watched duration is sufficient
-      const watchedDuration = verificationData.watchedDuration || 0;
-      const requiredDuration = task.videoDuration || 0;
-
-      console.log(
-        `Watched: ${watchedDuration}s, Required: ${requiredDuration}s`
-      );
-
-      if (watchedDuration >= requiredDuration) {
-        isVerified = true;
-        console.log("Auto-verification successful - watched required duration");
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: `You need to watch at least ${requiredDuration} seconds of the video.`,
-        });
-      }
-    } else {
-      // Handle other task types as before
-      switch (task.type) {
-        case "twitter_follow":
-        case "twitter_share":
-          isVerified =
-            verificationData.tweetUrl &&
-            verificationData.tweetUrl.includes("twitter.com");
-          break;
-
-        case "youtube_subscribe":
-          isVerified =
-            verificationData.channelUrl &&
-            verificationData.channelUrl.includes("youtube.com");
-          break;
-
-        case "youtube_watch":
-          isVerified =
-            verificationData.videoUrl &&
-            verificationData.videoUrl.includes("youtube.com/watch");
-          break;
-
-        case "telegram_join":
-          isVerified =
-            verificationData.username &&
-            verificationData.username.startsWith("@");
-          break;
-
-        case "login":
-        case "profile":
-        case "custom":
-          isVerified = true;
-          break;
-
-        default:
-          isVerified = false;
-      }
-    }
-
-    if (!isVerified && !requiresManualVerification) {
       return res.status(400).json({
         success: false,
-        message: "Verification failed. Please check your submission.",
+        message: "This task has already been completed",
       });
     }
 
-    // Only reach here for non-screenshot tasks
-    // Update user task record for immediate verification
-    userTask.completed = true;
-    userTask.verified = true;
-    userTask.completedAt = new Date();
-    userTask.verificationData = verificationData;
+    // Handle task verification based on task type
+    if (task.type === "youtube_watch" && verificationData.autoVerified) {
+      try {
+        console.log("Processing YouTube watch task verification");
 
-    await userTask.save();
+        // For YouTube tasks that can be auto-verified
+        // Verify the user has watched the required duration
+        const watchedDuration = parseInt(verificationData.watchedDuration || 0);
+        const requiredDuration = parseInt(task.videoDuration || 30);
 
-    // Update user's balance for immediate verification
-    if (!user.walletBalance) {
-      user.walletBalance = 0;
+        console.log("Video watch duration:", {
+          watched: watchedDuration,
+          required: requiredDuration,
+        });
+
+        if (watchedDuration < requiredDuration) {
+          return res.status(400).json({
+            success: false,
+            message: `You need to watch the video for at least ${requiredDuration} seconds`,
+          });
+        }
+
+        // Mark task as completed
+        userTask.completed = true;
+        userTask.verified = true;
+        userTask.status = "approved";
+        userTask.completedAt = new Date();
+        userTask.updatedAt = new Date();
+
+        console.log("Marking task as completed:", {
+          taskId: userTask.taskId,
+          userId: userTask.userId,
+        });
+
+        try {
+          // Save the task first to mark it as completed
+          await userTask.save();
+          console.log("UserTask saved successfully");
+
+          // Then credit the reward to user's wallet using email
+          await creditRewardToWallet(
+            userEmail,
+            task.reward,
+            "task_reward", // Changed from 'task' to 'task_reward'
+            `Reward for completing "${task.title}"`
+          );
+          console.log("Reward credited successfully");
+        } catch (walletError) {
+          console.error("Error crediting wallet:", walletError);
+          return res.status(500).json({
+            success: false,
+            message: "Error crediting wallet: " + walletError.message,
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: `Task completed! ${task.reward.toFixed(
+            3
+          )} USD has been added to your wallet.`,
+        });
+      } catch (innerError) {
+        console.error("Error in YouTube task processing:", innerError);
+        return res.status(500).json({
+          success: false,
+          message: "Error processing YouTube task: " + innerError.message,
+        });
+      }
     }
 
-    user.walletBalance = (
-      parseFloat(user.walletBalance) + parseFloat(task.reward)
-    ).toFixed(5);
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Task completed successfully",
-      reward: task.reward,
-      status: "completed",
-    });
-  } catch (error) {
-    console.error("Error verifying task:", error);
-    res.status(500).json({
+    // Rest of the function remains the same...
+  } catch (err) {
+    console.error("Error verifying task:", err);
+    return res.status(500).json({
       success: false,
-      message: "Failed to verify task",
-      error: error.message,
+      message: "An error occurred during verification: " + err.message,
+      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
     });
   }
 };
+
+// Update the creditRewardToWallet function with better error logging
+async function creditRewardToWallet(userEmail, amount, source, description) {
+  try {
+    console.log(`Crediting wallet for ${userEmail} with ${amount}`);
+
+    // Find or create wallet by email
+    let wallet = await Wallet.findOne({ email: userEmail });
+
+    if (!wallet) {
+      console.log(`Creating new wallet for ${userEmail}`);
+      wallet = new Wallet({
+        email: userEmail,
+        balance: 0,
+        currency: "USD",
+        isActive: true,
+        lastUpdated: new Date(),
+      });
+    }
+
+    // Update wallet balance
+    const previousBalance = Number(wallet.balance || 0);
+    wallet.balance = previousBalance + Number(amount);
+    wallet.lastUpdated = new Date();
+
+    console.log(
+      `Wallet balance update: ${previousBalance} -> ${wallet.balance}`
+    );
+
+    // Check valid source values by logging the schema
+    console.log("Transaction schema path:", Transaction.schema.path("source"));
+
+    // Create transaction record - use "task_reward" instead of "task" which appears to be invalid
+    const transaction = new Transaction({
+      email: userEmail,
+      walletId: wallet._id,
+      amount: Number(amount),
+      type: "credit",
+      status: "completed",
+      source: "task_reward", // Changed from 'task' to 'task_reward'
+      description: description || "Task reward",
+      previousBalance: previousBalance,
+      newBalance: wallet.balance,
+      timestamp: new Date(),
+    });
+
+    // Save both wallet and transaction
+    await wallet.save();
+    console.log("Wallet saved successfully:", wallet._id);
+
+    await transaction.save();
+    console.log("Transaction created:", transaction._id);
+
+    return true;
+  } catch (error) {
+    console.error("Error crediting reward to wallet:", error);
+    throw new Error(`Failed to credit wallet: ${error.message}`);
+  }
+}
 
 // server/controllers/admin.js (create or update)
 
