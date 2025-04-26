@@ -14,17 +14,7 @@ const taskSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: [
-        "twitter_follow",
-        "twitter_share",
-        "youtube_subscribe",
-        "youtube_watch",
-        "telegram_join",
-        "screenshot",
-        "login",
-        "profile",
-        "custom",
-      ],
+      enum: ["youtube_watch", "screenshot", "custom"],
       required: true,
     },
     difficulty: {
