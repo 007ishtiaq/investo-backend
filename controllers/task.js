@@ -331,10 +331,10 @@ exports.verifyTask = async (req, res) => {
       taskId: taskId,
     });
 
-    // console.log("UserTask lookup result:", {
-    //   found: !!userTask,
-    //   userTaskData: userTask ? userTask._id : null,
-    // });
+    console.log("UserTask lookup result:", {
+      found: !!userTask,
+      userTaskData: userTask ? userTask._id : null,
+    });
 
     // If not found, create a new user task entry matching the schema structure
     if (!userTask) {
@@ -419,6 +419,55 @@ exports.verifyTask = async (req, res) => {
           message: "Error processing YouTube task: " + innerError.message,
         });
       }
+    } else if (task.type === "screenshot") {
+      // Check if screenshot was provided
+      if (verificationData.screenshot) {
+        try {
+          // Upload to cloudinary
+          const uploadResult = await cloudinary.uploader.upload(
+            verificationData.screenshot,
+            {
+              folder: `tasks/${user._id}`,
+              resource_type: "auto",
+            }
+          );
+
+          console.log("Screenshot uploaded:", uploadResult.secure_url);
+
+          // Store the image URL in the userTask
+          userTask.screenshot = uploadResult.secure_url;
+          verificationData.screenshotUrl = uploadResult.secure_url;
+
+          // For screenshot tasks, we set this flag to true
+          // but don't mark as verified immediately
+          requiresManualVerification = true;
+
+          // Set status to "pending verification" instead of completing immediately
+          userTask.status = "pending_verification";
+          userTask.submittedAt = new Date();
+          userTask.verificationData = verificationData;
+
+          await userTask.save();
+
+          return res.json({
+            success: true,
+            message:
+              "Screenshot uploaded successfully. Waiting for admin verification.",
+            status: "pending_verification",
+          });
+        } catch (error) {
+          console.error("Error uploading screenshot:", error);
+          return res.status(400).json({
+            success: false,
+            message: "Failed to upload screenshot. Please try again.",
+          });
+        }
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Screenshot is required for this task.",
+        });
+      }
     }
 
     // Rest of the function remains the same...
@@ -433,12 +482,7 @@ exports.verifyTask = async (req, res) => {
 };
 
 // Update the creditRewardToWallet function with better error logging
-exports.creditRewardToWallet = async function (
-  userEmail,
-  amount,
-  source,
-  description
-) {
+async function creditRewardToWallet(userEmail, amount, source, description) {
   try {
     console.log(`Crediting wallet for ${userEmail} with ${amount}`);
 
@@ -494,7 +538,9 @@ exports.creditRewardToWallet = async function (
     console.error("Error crediting reward to wallet:", error);
     throw new Error(`Failed to credit wallet: ${error.message}`);
   }
-};
+}
+// Then export it for use in other files
+exports.creditRewardToWallet = creditRewardToWallet;
 
 // server/controllers/admin.js (create or update)
 
