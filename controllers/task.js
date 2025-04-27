@@ -295,15 +295,14 @@ cloudinary.config({
 exports.verifyTask = async (req, res) => {
   try {
     const taskId = req.params.taskId;
-    // User ID might be undefined, but we have the email
     const userEmail = req.user.email;
     const verificationData = req.body;
 
-    console.log("Task verification request with email:", {
-      taskId,
-      userEmail,
-      verificationData,
-    });
+    // console.log("Task verification request with email:", {
+    //   taskId,
+    //   userEmail,
+    //   verificationData,
+    // });
 
     // Find the task
     const task = await Task.findById(taskId);
@@ -325,7 +324,6 @@ exports.verifyTask = async (req, res) => {
 
     // Use the found userId
     const userId = user._id;
-    console.log("Found user ID from email:", userId);
 
     // Try to find the user task with the retrieved userId
     let userTask = await UserTask.findOne({
@@ -333,10 +331,10 @@ exports.verifyTask = async (req, res) => {
       taskId: taskId,
     });
 
-    console.log("UserTask lookup result:", {
-      found: !!userTask,
-      userTaskData: userTask ? userTask._id : null,
-    });
+    // console.log("UserTask lookup result:", {
+    //   found: !!userTask,
+    //   userTaskData: userTask ? userTask._id : null,
+    // });
 
     // If not found, create a new user task entry matching the schema structure
     if (!userTask) {
@@ -358,7 +356,7 @@ exports.verifyTask = async (req, res) => {
 
       // Save the new user task
       await userTask.save();
-      console.log("Created new UserTask:", userTask._id);
+      // console.log("Created new UserTask:", userTask._id);
     }
 
     if (userTask.completed) {
@@ -371,17 +369,9 @@ exports.verifyTask = async (req, res) => {
     // Handle task verification based on task type
     if (task.type === "youtube_watch" && verificationData.autoVerified) {
       try {
-        console.log("Processing YouTube watch task verification");
-
-        // For YouTube tasks that can be auto-verified
         // Verify the user has watched the required duration
         const watchedDuration = parseInt(verificationData.watchedDuration || 0);
         const requiredDuration = parseInt(task.videoDuration || 30);
-
-        console.log("Video watch duration:", {
-          watched: watchedDuration,
-          required: requiredDuration,
-        });
 
         if (watchedDuration < requiredDuration) {
           return res.status(400).json({
@@ -397,15 +387,9 @@ exports.verifyTask = async (req, res) => {
         userTask.completedAt = new Date();
         userTask.updatedAt = new Date();
 
-        console.log("Marking task as completed:", {
-          taskId: userTask.taskId,
-          userId: userTask.userId,
-        });
-
         try {
           // Save the task first to mark it as completed
           await userTask.save();
-          console.log("UserTask saved successfully");
 
           // Then credit the reward to user's wallet using email
           await creditRewardToWallet(
@@ -414,7 +398,6 @@ exports.verifyTask = async (req, res) => {
             "task_reward", // Changed from 'task' to 'task_reward'
             `Reward for completing "${task.title}"`
           );
-          console.log("Reward credited successfully");
         } catch (walletError) {
           console.error("Error crediting wallet:", walletError);
           return res.status(500).json({
@@ -450,7 +433,12 @@ exports.verifyTask = async (req, res) => {
 };
 
 // Update the creditRewardToWallet function with better error logging
-async function creditRewardToWallet(userEmail, amount, source, description) {
+exports.creditRewardToWallet = async function (
+  userEmail,
+  amount,
+  source,
+  description
+) {
   try {
     console.log(`Crediting wallet for ${userEmail} with ${amount}`);
 
@@ -506,7 +494,7 @@ async function creditRewardToWallet(userEmail, amount, source, description) {
     console.error("Error crediting reward to wallet:", error);
     throw new Error(`Failed to credit wallet: ${error.message}`);
   }
-}
+};
 
 // server/controllers/admin.js (create or update)
 

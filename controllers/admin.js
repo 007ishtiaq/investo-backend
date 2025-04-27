@@ -3,11 +3,15 @@ const UserTask = require("../models/userTask");
 const Task = require("../models/tasks");
 const { creditToWallet } = require("./wallet");
 const User = require("../models/user");
+const { creditRewardToWallet } = require("./task");
 
+// Task verification and reward crediting
 // Task verification and reward crediting
 exports.approveTask = async (req, res) => {
   try {
-    const userTaskId = req.params.id;
+    // Change this line to match the route parameter name
+    const userTaskId = req.params.userTaskId; // Changed from req.params.id
+    console.log("Processing approval for userTaskId:", userTaskId);
 
     // Find the user task submission
     const userTask = await UserTask.findById(userTaskId);
@@ -31,14 +35,32 @@ exports.approveTask = async (req, res) => {
     userTask.completed = true;
     userTask.completedAt = new Date();
 
-    // Credit reward to wallet
-    await creditRewardToWallet(
-      userTask.userId,
-      task.reward,
-      "task_approval",
-      `Admin approved reward for "${task.title}"`
-    );
+    // Find the user email for wallet crediting - this is important
+    const user = await User.findById(userTask.userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
 
+    // Credit reward to wallet using email
+    try {
+      await creditRewardToWallet(
+        user.email, // Use user's email instead of userId
+        task.reward,
+        "task_reward", // Make sure this matches your Transaction schema enum
+        `Admin approved reward for "${task.title}"`
+      );
+      console.log(`Reward of ${task.reward} credited to ${user.email}`);
+    } catch (walletError) {
+      console.error("Error crediting wallet:", walletError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to credit reward: " + walletError.message,
+      });
+    }
+
+    // Save the updated user task
     await userTask.save();
 
     res.status(200).json({
@@ -49,7 +71,10 @@ exports.approveTask = async (req, res) => {
     });
   } catch (err) {
     console.error("Error approving task:", err);
-    res.status(500).json({ success: false, message: "Failed to approve task" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to approve task: " + err.message,
+    });
   }
 };
 
