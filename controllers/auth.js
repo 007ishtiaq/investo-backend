@@ -5,11 +5,11 @@ const bcrypt = require("bcrypt");
 const { otpEmailtemplate } = require("../middlewares/utils");
 
 exports.createOrUpdateUser = async (req, res) => {
-  const { picture, email } = req.user;
+  const { picture, email, uid } = req.user; // Extract uid from Firebase auth token
 
   const user = await User.findOneAndUpdate(
     { email },
-    { picture },
+    { picture, uid }, // Add uid to the update
     { new: true }
   );
   if (user) {
@@ -21,6 +21,7 @@ exports.createOrUpdateUser = async (req, res) => {
     const newUser = await new User({
       email,
       picture,
+      uid, // Add uid to new user creation
     }).save();
     // Remove all previously saved OTPs for this email
     await OtpVerification.deleteMany({ userEmail: email });

@@ -36,6 +36,11 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    uid: {
+      type: String,
+      required: true, // This ensures it can't be null
+      unique: true,
+    },
   },
   { timestamps: true }
 );
