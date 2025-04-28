@@ -19,7 +19,7 @@ const { approveTask, rejectTask } = require("../controllers/admin");
 const { authCheck, adminCheck } = require("../middlewares/auth");
 
 // Public routes
-router.get("/tasks", getAllTasks);
+router.get("/tasks", authCheck, getAllTasks);
 router.get("/tasks/:id", getTask);
 
 // User routes (require authentication)

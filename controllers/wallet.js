@@ -45,8 +45,6 @@ exports.getUserWallet = async (req, res) => {
         .json({ error: "Email not found in authentication" });
     }
 
-    console.log(`Getting wallet for user email: ${email}`);
-
     // Find or create wallet
     let wallet = await Wallet.findOne({ email });
 
@@ -55,7 +53,16 @@ exports.getUserWallet = async (req, res) => {
       wallet = await exports.createUserWallet(email);
     }
 
-    res.status(200).json(wallet);
+    // Get user level from User model
+    const user = await User.findOne({ email: email });
+
+    // Prepare response with wallet and level
+    const response = {
+      ...wallet.toObject(),
+      level: user ? user.level || 1 : 1, // Default to level 1 if not found
+    };
+
+    res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching wallet:", error);
     res.status(500).json({ error: `Failed to fetch wallet: ${error.message}` });
