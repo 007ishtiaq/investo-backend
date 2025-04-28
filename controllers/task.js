@@ -24,7 +24,22 @@ exports.createTask = async (req, res) => {
 // Get all active tasks
 exports.getAllTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ active: true }).sort({ createdAt: -1 });
+    // If user is not logged in, only show level 1 tasks
+    if (!req.user) {
+      const tasks = await Task.find({ active: true, minLevel: 1 });
+      return res.json(tasks);
+    }
+
+    // Get user level from database
+    const user = await User.findOne({ email: req.user.email });
+    const userLevel = user ? user.level || 1 : 1;
+
+    // Find tasks with minLevel less than or equal to user's level
+    const tasks = await Task.find({
+      active: true,
+      minLevel: { $lte: userLevel },
+    });
+
     res.json(tasks);
   } catch (error) {
     console.error("Error getting tasks:", error);

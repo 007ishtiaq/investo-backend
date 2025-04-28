@@ -38,6 +38,10 @@ const taskSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    minLevel: {
+      type: Number,
+      default: 1,
+    },
     // Screenshot fields
     screenshotRequired: {
       type: Boolean,
