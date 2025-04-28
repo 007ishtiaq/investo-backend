@@ -6,10 +6,11 @@ const { otpEmailtemplate } = require("../middlewares/utils");
 
 exports.createOrUpdateUser = async (req, res) => {
   const { picture, email, uid } = req.user; // Extract uid from Firebase auth token
+  const { name } = req.body;
 
   const user = await User.findOneAndUpdate(
     { email },
-    { picture, uid }, // Add uid to the update
+    { name, picture, uid }, // Add uid to the update
     { new: true }
   );
   if (user) {
@@ -19,6 +20,7 @@ exports.createOrUpdateUser = async (req, res) => {
     res.json(user);
   } else {
     const newUser = await new User({
+      name,
       email,
       picture,
       uid, // Add uid to new user creation
