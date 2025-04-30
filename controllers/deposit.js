@@ -17,8 +17,10 @@ exports.createDeposit = async (req, res) => {
       });
     }
 
+    const user = await User.findOne({ email: req.user.email });
+
     const newDeposit = await new Deposit({
-      user: req.user._id,
+      user: user._id,
       amount,
       paymentMethod,
       transactionId,
@@ -35,7 +37,8 @@ exports.createDeposit = async (req, res) => {
 // Get user's deposit history
 exports.getUserDeposits = async (req, res) => {
   try {
-    const deposits = await Deposit.find({ user: req.user._id })
+    const user = await User.findOne({ email: req.user.email });
+    const deposits = await Deposit.find({ user: user._id })
       .sort({ createdAt: -1 })
       .populate("assignedPlan", "name durationInDays returnRate")
       .exec();
@@ -99,10 +102,12 @@ exports.reviewDeposit = async (req, res) => {
       return res.status(400).json({ error: "Deposit already processed" });
     }
 
+    const user = await User.findOne({ email: req.user.email });
+
     // Update deposit status
     deposit.status = status;
     deposit.adminNotes = adminNotes;
-    deposit.approvedBy = req.user._id;
+    deposit.approvedBy = user._id;
     deposit.approvedAt = new Date();
 
     if (status === "approved" && planId) {
