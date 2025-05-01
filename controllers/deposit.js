@@ -38,10 +38,19 @@ exports.createDeposit = async (req, res) => {
 exports.getUserDeposits = async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const deposits = await Deposit.find({ user: user._id })
       .sort({ createdAt: -1 })
       .populate("assignedPlan", "name durationInDays returnRate")
       .exec();
+
+    if (deposits.length === 0) {
+      return res.json({ message: "No deposits found", deposits: [] });
+    }
 
     res.json(deposits);
   } catch (error) {
