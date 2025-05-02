@@ -56,7 +56,7 @@ exports.updateUserLevel = async (req, res) => {
 // Get user level (for client-side)
 exports.getUserLevel = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("level");
+    const user = await User.findOne({ email: req.user.email }).select("level");
 
     res.json({
       level: user.level || 1,

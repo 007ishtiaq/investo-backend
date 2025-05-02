@@ -6,6 +6,8 @@ const User = require("../models/user");
 // Create wallet for a user if it doesn't exist
 exports.createUserWallet = async (email) => {
   try {
+    console.log("email got", email);
+
     if (!email) {
       throw new Error("Email is required to create a wallet");
     }
@@ -61,6 +63,7 @@ exports.getUserWallet = async (req, res) => {
       ...wallet.toObject(),
       level: user ? user.level || 1 : 1, // Default to level 1 if not found
     };
+    console.log("response", response);
 
     res.status(200).json(response);
   } catch (error) {
@@ -82,7 +85,7 @@ exports.creditToWallet = async (
       throw new Error("Email is required to credit wallet");
     }
 
-    console.log(`Crediting wallet for user email ${email}`);
+    // console.log(`Crediting wallet for user email ${email}`);
 
     // Find or create wallet
     let wallet = await Wallet.findOne({ email });
