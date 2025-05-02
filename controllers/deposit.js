@@ -95,7 +95,7 @@ exports.getPendingDeposits = async (req, res) => {
 exports.reviewDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { status, planId, adminNotes, amount } = req.body; // Add amount to destructuring
+    const { status, planId, adminNotes, amount } = req.body;
 
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
@@ -120,9 +120,9 @@ exports.reviewDeposit = async (req, res) => {
     deposit.approvedBy = adminUser._id;
     deposit.approvedAt = new Date();
 
-    // Update amount if provided
-    if (amount !== undefined && !isNaN(parseFloat(amount))) {
-      deposit.amount = parseFloat(amount);
+    // Update the amount if provided in the request
+    if (amount && !isNaN(amount) && amount > 0) {
+      deposit.amount = amount;
     }
 
     if (status === "approved" && planId) {
@@ -141,17 +141,23 @@ exports.reviewDeposit = async (req, res) => {
       const newInvestment = await new Investment({
         user: deposit.user,
         plan: planId,
-        amount: deposit.amount, // This will use the possibly updated amount
+        amount: deposit.amount,
         initialAmount: deposit.amount,
         endDate,
         deposit: depositId,
       }).save();
 
-      // Get the depositor's email
+      // Get the depositor
       const depositor = await User.findById(deposit.user);
 
       if (!depositor) {
         return res.status(404).json({ error: "Depositor user not found" });
+      }
+
+      // Set user level to exactly match the plan's minLevel
+      if (plan.minLevel && depositor.level !== plan.minLevel) {
+        depositor.level = plan.minLevel;
+        await depositor.save();
       }
 
       // Find or create wallet for the depositor
@@ -165,7 +171,7 @@ exports.reviewDeposit = async (req, res) => {
         }).save();
       }
 
-      // Update wallet balance with the possibly updated amount
+      // Update wallet balance
       wallet.balance += deposit.amount;
       wallet.lastUpdated = new Date();
       await wallet.save();

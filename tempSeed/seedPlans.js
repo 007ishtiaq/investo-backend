@@ -12,10 +12,10 @@ const samplePlans = [
   {
     name: "Basic Plan",
     description: "Entry-level plan with daily profit distribution",
-    minAmount: 0.1,
-    maxAmount: 0.49,
-    durationInDays: 30,
-    returnRate: 15, // 0.5% daily * 30 days
+    minAmount: 0,
+    maxAmount: 0,
+    durationInDays: 1,
+    returnRate: 0.5,
     dailyIncome: 0.5,
     isFixedDeposit: false,
     features: [
@@ -30,11 +30,11 @@ const samplePlans = [
   {
     name: "Standard Plan",
     description: "Mid-level plan with enhanced features and returns",
-    minAmount: 0.5,
-    maxAmount: 0.99,
-    durationInDays: 60,
-    returnRate: 48, // 0.8% daily * 60 days
-    dailyIncome: 0.8,
+    minAmount: 10,
+    maxAmount: 199,
+    durationInDays: 1,
+    returnRate: 2,
+    dailyIncome: 2,
     isFixedDeposit: false,
     features: [
       "Daily profit distribution",
@@ -49,11 +49,11 @@ const samplePlans = [
   {
     name: "Premium Plan",
     description: "Advanced plan with premium features and higher returns",
-    minAmount: 1.0,
-    maxAmount: 1.99,
-    durationInDays: 90,
-    returnRate: 108, // 1.2% daily * 90 days
-    dailyIncome: 1.2,
+    minAmount: 200,
+    maxAmount: 499,
+    durationInDays: 1,
+    returnRate: 3, // 1.2% daily * 90 days
+    dailyIncome: 3,
     isFixedDeposit: false,
     features: [
       "Daily profit distribution",
@@ -69,11 +69,11 @@ const samplePlans = [
   {
     name: "Elite Plan",
     description: "Top-tier plan with maximum returns and exclusive benefits",
-    minAmount: 2.0,
-    maxAmount: 10.0,
-    durationInDays: 180,
-    returnRate: 270, // 1.5% daily * 180 days
-    dailyIncome: 1.5,
+    minAmount: 500,
+    maxAmount: 1000000,
+    durationInDays: 1,
+    returnRate: 4, // 1.5% daily * 180 days
+    dailyIncome: 4,
     isFixedDeposit: false,
     features: [
       "Guaranteed returns",

@@ -15,7 +15,7 @@ const investmentPlanSchema = new mongoose.Schema(
     minAmount: {
       type: Number,
       required: true,
-      min: 0.01,
+      min: 0.0,
     },
     maxAmount: {
       type: Number,
