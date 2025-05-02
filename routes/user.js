@@ -2,9 +2,14 @@
 const express = require("express");
 const router = express.Router();
 const { authCheck, adminCheck } = require("../middlewares/auth");
-const { updateUserLevel, getUserLevel } = require("../controllers/user");
+const {
+  getUsers,
+  updateUserLevel,
+  getUserLevel,
+} = require("../controllers/user");
 
-// User level routes
+// User management
+router.get("/admin/users", authCheck, adminCheck, getUsers);
 router.get("/user/level", authCheck, getUserLevel);
 router.put("/admin/user/:userId/level", authCheck, adminCheck, updateUserLevel);
 

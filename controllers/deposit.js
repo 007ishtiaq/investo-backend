@@ -81,7 +81,7 @@ exports.getPendingDeposits = async (req, res) => {
   try {
     const deposits = await Deposit.find({ status: "pending" })
       .sort({ createdAt: -1 })
-      .populate("user", "email username")
+      .populate("user", "email name")
       .exec();
 
     res.json(deposits);
@@ -95,7 +95,7 @@ exports.getPendingDeposits = async (req, res) => {
 exports.reviewDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
-    const { status, planId, adminNotes } = req.body;
+    const { status, planId, adminNotes, amount } = req.body; // Add amount to destructuring
 
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
@@ -111,13 +111,19 @@ exports.reviewDeposit = async (req, res) => {
       return res.status(400).json({ error: "Deposit already processed" });
     }
 
-    const user = await User.findOne({ email: req.user.email });
+    // Get the admin user who is approving the deposit
+    const adminUser = await User.findOne({ email: req.user.email });
 
     // Update deposit status
     deposit.status = status;
     deposit.adminNotes = adminNotes;
-    deposit.approvedBy = user._id;
+    deposit.approvedBy = adminUser._id;
     deposit.approvedAt = new Date();
+
+    // Update amount if provided
+    if (amount !== undefined && !isNaN(parseFloat(amount))) {
+      deposit.amount = parseFloat(amount);
+    }
 
     if (status === "approved" && planId) {
       const plan = await InvestmentPlan.findById(planId);
@@ -135,44 +141,49 @@ exports.reviewDeposit = async (req, res) => {
       const newInvestment = await new Investment({
         user: deposit.user,
         plan: planId,
-        amount: deposit.amount,
+        amount: deposit.amount, // This will use the possibly updated amount
         initialAmount: deposit.amount,
         endDate,
         deposit: depositId,
       }).save();
 
-      // Update user's wallet
-      const wallet = await Wallet.findOne({ user: deposit.user });
+      // Get the depositor's email
+      const depositor = await User.findById(deposit.user);
 
-      if (wallet) {
-        // Record transaction
-        await new Transaction({
-          user: deposit.user,
-          amount: deposit.amount,
-          type: "deposit",
-          status: "completed",
-          source: "deposit_investment",
-          reference: deposit._id,
-          description: `Deposit approved for investment in ${plan.name}`,
-        }).save();
-      } else {
+      if (!depositor) {
+        return res.status(404).json({ error: "Depositor user not found" });
+      }
+
+      // Find or create wallet for the depositor
+      let wallet = await Wallet.findOne({ email: depositor.email });
+
+      if (!wallet) {
         // Create wallet if it doesn't exist
-        await new Wallet({
-          user: deposit.user,
+        wallet = await new Wallet({
+          email: depositor.email,
           balance: 0,
         }).save();
-
-        // Record transaction
-        await new Transaction({
-          user: deposit.user,
-          amount: deposit.amount,
-          type: "deposit",
-          status: "completed",
-          source: "deposit_investment",
-          reference: deposit._id,
-          description: `Deposit approved for investment in ${plan.name}`,
-        }).save();
       }
+
+      // Update wallet balance with the possibly updated amount
+      wallet.balance += deposit.amount;
+      wallet.lastUpdated = new Date();
+      await wallet.save();
+
+      // Record transaction (according to your schema)
+      await new Transaction({
+        email: depositor.email,
+        walletId: wallet._id,
+        amount: deposit.amount,
+        type: "credit",
+        status: "completed",
+        source: "deposit",
+        reference: deposit._id.toString(),
+        description: `Deposit approved for investment in ${plan.name}`,
+        metadata: {
+          // You can add more metadata if needed
+        },
+      }).save();
     }
 
     await deposit.save();

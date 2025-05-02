@@ -1,6 +1,21 @@
 // server/controllers/user.js (additions for level management)
 const User = require("../models/user");
 
+// Get all users for admin
+exports.getUsers = async (req, res) => {
+  try {
+    // Fetch all users, excluding sensitive information
+    const users = await User.find({})
+      .select("-__v -password") // Exclude sensitive fields
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.json(users);
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+};
+
 // For admin: Update user level
 exports.updateUserLevel = async (req, res) => {
   try {

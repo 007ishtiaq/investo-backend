@@ -87,68 +87,6 @@ const samplePlans = [
     active: true,
     featured: false,
   },
-
-  // Fixed Deposit Plans
-  {
-    name: "Silver Deposit",
-    description: "Short-term fixed deposit with guaranteed returns",
-    minAmount: 0.5,
-    maxAmount: 0.99,
-    durationInDays: 90, // 3 months
-    returnRate: 8,
-    dailyIncome: 0,
-    isFixedDeposit: true,
-    features: [
-      "Guaranteed fixed returns",
-      "One-time payout at maturity",
-      "Low minimum deposit",
-      "No maintenance fees",
-    ],
-    minLevel: 1,
-    active: true,
-    featured: false,
-  },
-  {
-    name: "Gold Deposit",
-    description: "Medium-term fixed deposit with higher returns",
-    minAmount: 1.0,
-    maxAmount: 2.99,
-    durationInDays: 180, // 6 months
-    returnRate: 12,
-    dailyIncome: 0,
-    isFixedDeposit: true,
-    features: [
-      "Guaranteed fixed returns",
-      "One-time payout at maturity",
-      "Early withdrawal option (with fee)",
-      "Priority customer support",
-      "Monthly performance report",
-    ],
-    minLevel: 2,
-    active: true,
-    featured: true,
-  },
-  {
-    name: "Platinum Deposit",
-    description: "Long-term fixed deposit with premium returns",
-    minAmount: 3.0,
-    maxAmount: 15.0,
-    durationInDays: 365, // 12 months
-    returnRate: 18,
-    dailyIncome: 0,
-    isFixedDeposit: true,
-    features: [
-      "Guaranteed fixed returns",
-      "One-time payout at maturity",
-      "Early withdrawal option (with fee)",
-      "Priority customer support",
-      "Quarterly consultation calls",
-      "Access to exclusive investment opportunities",
-    ],
-    minLevel: 3,
-    active: true,
-    featured: false,
-  },
 ];
 
 const seedPlans = async () => {

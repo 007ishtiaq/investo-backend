@@ -442,7 +442,7 @@ exports.verifyTask = async (req, res) => {
           const uploadResult = await cloudinary.uploader.upload(
             verificationData.screenshot,
             {
-              folder: `tasks/${user._id}`,
+              public_id: `${Date.now()}`,
               resource_type: "auto",
             }
           );
