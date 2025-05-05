@@ -36,6 +36,13 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Notification preferences
+    notifications: {
+      deposits: { type: Boolean, default: true },
+      earnings: { type: Boolean, default: true },
+      promotions: { type: Boolean, default: false },
+      security: { type: Boolean, default: true },
+    },
     uid: {
       type: String,
       required: true, // This ensures it can't be null

@@ -132,3 +132,49 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+
+// Update notification preferences
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const { deposits, earnings, promotions, security } = req.body;
+
+    // Validate input
+    if (
+      deposits === undefined ||
+      earnings === undefined ||
+      promotions === undefined ||
+      security === undefined
+    ) {
+      return res
+        .status(400)
+        .json({ error: "All notification preferences are required" });
+    }
+
+    // Find and update user
+    const updated = await User.findOneAndUpdate(
+      { uid: req.user.uid },
+      {
+        notifications: {
+          deposits,
+          earnings,
+          promotions,
+          security,
+        },
+      },
+      { new: true }
+    ).exec();
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Return success response
+    res.json({
+      success: true,
+      notifications: updated.notifications,
+    });
+  } catch (error) {
+    console.error("UPDATE NOTIFICATION PREFERENCES ERROR", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};

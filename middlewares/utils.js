@@ -313,9 +313,70 @@ const generateInvoicePDF = (order) => {
   });
 };
 
+// Add this new function to your existing utils.js file
+const depositNotificationTemplate = (deposit, plan) => {
+  return `
+    <h1>Your Deposit Has Been Approved!</h1>
+    <p>Hi there,</p>
+    <p>We're pleased to inform you that your deposit has been successfully approved and added to your wallet.</p>
+   
+    <h2>[Deposit ID: ${deposit._id.toString()}] (${
+    new Date(deposit.approvedAt).toISOString().split("T")[0]
+  })</h2>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+      <tr style="background-color: #f8f9fa;">
+        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
+        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${deposit.amount.toFixed(
+          2
+        )}</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Approved</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Investment Plan:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
+          plan ? plan.name : "N/A"
+        }</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Duration:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
+          plan ? plan.durationInDays + " days" : "N/A"
+        }</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Expected ROI:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
+          plan ? plan.returnRate + "%" : "N/A"
+        }</td>
+      </tr>
+    </table>
+    <p>Your funds have been successfully added to your wallet and your investment has been activated.</p>
+    
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <p style="margin: 0;"><strong>Login to your account to track your investments and earnings.</strong></p>
+    </div>
+    
+    <p>Thank you for investing with us. If you have any questions, please don't hesitate to contact our support team.</p>
+    <hr/>
+    <p>
+      Best regards,<br/>
+      Investo Team
+    </p>
+  `;
+};
+
 module.exports = {
   transporter,
   orderReceipttemplate,
   generateInvoicePDF,
   otpEmailtemplate,
+  depositNotificationTemplate,
 };

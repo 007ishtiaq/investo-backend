@@ -5,6 +5,10 @@ const Investment = require("../models/investment");
 const InvestmentPlan = require("../models/investmentPlan");
 const Wallet = require("../models/wallet");
 const Transaction = require("../models/transaction");
+const {
+  transporter,
+  depositNotificationTemplate,
+} = require("../middlewares/utils");
 
 // Create a new deposit request
 exports.createDeposit = async (req, res) => {
@@ -92,6 +96,113 @@ exports.getPendingDeposits = async (req, res) => {
 };
 
 // For admin: Approve or reject deposit
+// exports.reviewDeposit = async (req, res) => {
+//   try {
+//     const { depositId } = req.params;
+//     const { status, planId, adminNotes, amount } = req.body;
+
+//     if (!["approved", "rejected"].includes(status)) {
+//       return res.status(400).json({ error: "Invalid status" });
+//     }
+
+//     const deposit = await Deposit.findById(depositId);
+
+//     if (!deposit) {
+//       return res.status(404).json({ error: "Deposit not found" });
+//     }
+
+//     if (deposit.status !== "pending") {
+//       return res.status(400).json({ error: "Deposit already processed" });
+//     }
+
+//     // Get the admin user who is approving the deposit
+//     const adminUser = await User.findOne({ email: req.user.email });
+
+//     // Update deposit status
+//     deposit.status = status;
+//     deposit.adminNotes = adminNotes;
+//     deposit.approvedBy = adminUser._id;
+//     deposit.approvedAt = new Date();
+
+//     // Update the amount if provided in the request
+//     if (amount && !isNaN(amount) && amount > 0) {
+//       deposit.amount = amount;
+//     }
+
+//     if (status === "approved" && planId) {
+//       const plan = await InvestmentPlan.findById(planId);
+
+//       if (!plan) {
+//         return res.status(404).json({ error: "Investment plan not found" });
+//       }
+
+//       deposit.assignedPlan = planId;
+
+//       // Create investment for user
+//       const endDate = new Date();
+//       endDate.setDate(endDate.getDate() + plan.durationInDays);
+
+//       const newInvestment = await new Investment({
+//         user: deposit.user,
+//         plan: planId,
+//         amount: deposit.amount,
+//         initialAmount: deposit.amount,
+//         endDate,
+//         deposit: depositId,
+//       }).save();
+
+//       // Get the depositor
+//       const depositor = await User.findById(deposit.user);
+
+//       if (!depositor) {
+//         return res.status(404).json({ error: "Depositor user not found" });
+//       }
+
+//       // Set user level to exactly match the plan's minLevel
+//       if (plan.minLevel && depositor.level !== plan.minLevel) {
+//         depositor.level = plan.minLevel;
+//         await depositor.save();
+//       }
+
+//       // Find or create wallet for the depositor
+//       let wallet = await Wallet.findOne({ email: depositor.email });
+
+//       if (!wallet) {
+//         // Create wallet if it doesn't exist
+//         wallet = await new Wallet({
+//           email: depositor.email,
+//           balance: 0,
+//         }).save();
+//       }
+
+//       // Update wallet balance
+//       wallet.balance += deposit.amount;
+//       wallet.lastUpdated = new Date();
+//       await wallet.save();
+
+//       // Record transaction (according to your schema)
+//       await new Transaction({
+//         email: depositor.email,
+//         walletId: wallet._id,
+//         amount: deposit.amount,
+//         type: "credit",
+//         status: "completed",
+//         source: "deposit",
+//         reference: deposit._id.toString(),
+//         description: `Deposit approved for investment in ${plan.name}`,
+//         metadata: {
+//           // You can add more metadata if needed
+//         },
+//       }).save();
+//     }
+
+//     await deposit.save();
+//     res.json(deposit);
+//   } catch (error) {
+//     console.error("Review deposit error:", error);
+//     res.status(500).json({ error: "Failed to process deposit request" });
+//   }
+// };
 exports.reviewDeposit = async (req, res) => {
   try {
     const { depositId } = req.params;
@@ -176,7 +287,7 @@ exports.reviewDeposit = async (req, res) => {
       wallet.lastUpdated = new Date();
       await wallet.save();
 
-      // Record transaction (according to your schema)
+      // Record transaction
       await new Transaction({
         email: depositor.email,
         walletId: wallet._id,
@@ -190,6 +301,30 @@ exports.reviewDeposit = async (req, res) => {
           // You can add more metadata if needed
         },
       }).save();
+
+      // Send email notification if user has deposits notifications enabled
+      try {
+        // Check if user has deposit notifications enabled
+        const notificationsEnabled =
+          depositor.notifications && depositor.notifications.deposits !== false;
+
+        if (notificationsEnabled) {
+          // Email content
+          const mailOptions = {
+            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            to: depositor.email,
+            subject: "Deposit Approved - Investo",
+            html: depositNotificationTemplate(deposit, plan),
+          };
+
+          // Send email using the same transporter used for OTP
+          await transporter.sendMail(mailOptions);
+          // console.log("Deposit approval email sent to:", depositor.email);
+        }
+      } catch (emailError) {
+        // Log the error but don't fail the entire process if email sending fails
+        console.error("Failed to send deposit notification email:", emailError);
+      }
     }
 
     await deposit.save();

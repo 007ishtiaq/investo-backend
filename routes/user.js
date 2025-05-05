@@ -8,6 +8,7 @@ const {
   getUserLevel,
   updateProfile,
   getCurrentUser,
+  updateNotificationPreferences,
 } = require("../controllers/user");
 
 // User management
@@ -16,5 +17,6 @@ router.get("/user/level", authCheck, getUserLevel);
 router.put("/admin/user/:userId/level", authCheck, adminCheck, updateUserLevel);
 router.get("/current-user", authCheck, getCurrentUser);
 router.put("/user/profile", authCheck, updateProfile);
+router.put("/user/notifications", authCheck, updateNotificationPreferences);
 
 module.exports = router;
