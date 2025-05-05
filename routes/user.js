@@ -6,11 +6,15 @@ const {
   getUsers,
   updateUserLevel,
   getUserLevel,
+  updateProfile,
+  getCurrentUser,
 } = require("../controllers/user");
 
 // User management
 router.get("/admin/users", authCheck, adminCheck, getUsers);
 router.get("/user/level", authCheck, getUserLevel);
 router.put("/admin/user/:userId/level", authCheck, adminCheck, updateUserLevel);
+router.get("/current-user", authCheck, getCurrentUser);
+router.put("/user/profile", authCheck, updateProfile);
 
 module.exports = router;

@@ -66,3 +66,69 @@ exports.getUserLevel = async (req, res) => {
     res.status(500).json({ error: "Failed to get user level" });
   }
 };
+
+// Get current user
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Don't send sensitive information
+    const { name, email, contact, role, affiliateCode, level, _id } = user;
+
+    res.json({
+      _id,
+      name,
+      email,
+      contact,
+      role,
+      affiliateCode,
+      level,
+    });
+  } catch (error) {
+    console.error("GET CURRENT USER ERROR", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+// Update user profile
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, contact } = req.body;
+
+    // Validate input
+    if (!name) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    // Find and update user
+    const updated = await User.findOneAndUpdate(
+      { email: req.user.email },
+      { name, contact },
+      { new: true }
+    ).exec();
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Don't send sensitive information
+    const { email, role, affiliateCode, level, _id } = updated;
+
+    res.json({
+      _id,
+      name: updated.name,
+      email,
+      contact: updated.contact,
+      role,
+      affiliateCode,
+      level,
+    });
+  } catch (error) {
+    console.error("UPDATE PROFILE ERROR", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
