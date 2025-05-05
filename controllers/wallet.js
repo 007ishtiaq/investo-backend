@@ -2,6 +2,7 @@
 const Wallet = require("../models/wallet");
 const Transaction = require("../models/transaction");
 const User = require("../models/user");
+const Withdrawal = require("../models/withdrawal");
 
 // Create wallet for a user if it doesn't exist
 exports.createUserWallet = async (email) => {
@@ -163,5 +164,265 @@ exports.getTransactionHistory = async (req, res) => {
   } catch (error) {
     console.error("Error fetching transactions:", error);
     res.status(500).json({ error: "Failed to fetch transaction history" });
+  }
+};
+
+// Submit withdrawal request
+exports.withdraw = async (req, res) => {
+  try {
+    const { amount, paymentMethod, walletAddress, bankDetails } = req.body;
+
+    // Validate input
+    if (!amount || !paymentMethod) {
+      return res
+        .status(400)
+        .json({ error: "Amount and payment method are required" });
+    }
+
+    if (parseFloat(amount) <= 0) {
+      return res
+        .status(400)
+        .json({ error: "Amount must be greater than zero" });
+    }
+
+    // Validate payment method specific details
+    if (
+      ["bitcoin", "ethereum", "litecoin"].includes(paymentMethod) &&
+      !walletAddress
+    ) {
+      return res
+        .status(400)
+        .json({
+          error: `Wallet address is required for ${paymentMethod} withdrawals`,
+        });
+    }
+
+    if (paymentMethod === "bank_transfer" && !bankDetails) {
+      return res
+        .status(400)
+        .json({
+          error: "Bank details are required for bank transfer withdrawals",
+        });
+    }
+
+    // Check if user has a wallet
+    const wallet = await Wallet.findOne({ email: req.user.email });
+
+    if (!wallet) {
+      return res.status(404).json({ error: "Wallet not found" });
+    }
+
+    // Check if user has sufficient balance
+    if (parseFloat(amount) > wallet.balance) {
+      return res.status(400).json({ error: "Insufficient wallet balance" });
+    }
+
+    // Get user ID
+    const user = await User.findOne({ email: req.user.email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Create withdrawal request
+    const newWithdrawal = new Withdrawal({
+      user: user._id,
+      amount: parseFloat(amount),
+      paymentMethod,
+      walletAddress,
+      bankDetails,
+      status: "pending",
+    });
+
+    await newWithdrawal.save();
+
+    // Create a transaction record for the pending withdrawal
+    const newTransaction = new Transaction({
+      email: req.user.email,
+      walletId: wallet._id,
+      amount: parseFloat(amount),
+      type: "debit", // Withdrawal is a debit from user's wallet
+      status: "pending", // Will be updated to completed when withdrawal is approved
+      source: "withdrawal",
+      description: `Withdrawal request via ${paymentMethod}`,
+      reference: newWithdrawal._id.toString(),
+    });
+
+    await newTransaction.save();
+
+    res.json({
+      success: true,
+      message: "Withdrawal request submitted successfully",
+      withdrawal: newWithdrawal,
+    });
+  } catch (error) {
+    console.error("WITHDRAWAL REQUEST ERROR", error);
+    res.status(500).json({ error: "Error processing withdrawal request" });
+  }
+};
+// Get user's withdrawal history
+exports.getWithdrawals = async (req, res) => {
+  try {
+    const user = await User.findOne({ email: req.user.email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const withdrawals = await Withdrawal.find({ user: user._id }).sort({
+      createdAt: -1,
+    });
+
+    res.json({ withdrawals });
+  } catch (error) {
+    console.error("GET WITHDRAWALS ERROR", error);
+    res.status(500).json({ error: "Error fetching withdrawal history" });
+  }
+};
+// Admin review withdrawal request (approve/reject)
+exports.reviewWithdrawal = async (req, res) => {
+  try {
+    const { withdrawalId } = req.params;
+    const { status, adminNotes } = req.body;
+
+    if (!["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    // Find the withdrawal request
+    const withdrawal = await Withdrawal.findById(withdrawalId);
+
+    if (!withdrawal) {
+      return res.status(404).json({ error: "Withdrawal request not found" });
+    }
+
+    if (withdrawal.status !== "pending") {
+      return res
+        .status(400)
+        .json({ error: "Withdrawal request already processed" });
+    }
+
+    // Get the admin user
+    const adminUser = await User.findOne({ email: req.user.email });
+
+    // Get the user who requested the withdrawal
+    const withdrawalUser = await User.findById(withdrawal.user);
+
+    if (!withdrawalUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Find the wallet
+    const wallet = await Wallet.findOne({ email: withdrawalUser.email });
+
+    if (!wallet) {
+      return res.status(404).json({ error: "Wallet not found" });
+    }
+
+    // Find the transaction
+    const transaction = await Transaction.findOne({
+      reference: withdrawalId,
+      source: "withdrawal",
+    });
+
+    // Update withdrawal status
+    withdrawal.status = status;
+    withdrawal.adminNotes = adminNotes;
+    withdrawal.processedBy = adminUser._id;
+    withdrawal.processedAt = new Date();
+
+    if (status === "approved") {
+      // Check if user still has sufficient balance (in case they made other withdrawals)
+      if (wallet.balance < withdrawal.amount) {
+        return res.status(400).json({ error: "User has insufficient balance" });
+      }
+
+      // Update wallet balance
+      wallet.balance -= withdrawal.amount;
+      wallet.lastUpdated = new Date();
+      await wallet.save();
+
+      // Update transaction status
+      if (transaction) {
+        transaction.status = "completed";
+        await transaction.save();
+      }
+
+      // Send email notification if user has deposits notifications enabled
+      try {
+        // Check if user has withdrawal notifications enabled
+        const notificationsEnabled =
+          withdrawalUser.notifications &&
+          withdrawalUser.notifications.deposits !== false;
+
+        if (notificationsEnabled) {
+          // Import email template and transporter
+          const {
+            withdrawalApprovalTemplate,
+          } = require("../middlewares/utils");
+
+          // Email content
+          const mailOptions = {
+            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            to: withdrawalUser.email,
+            subject: "Withdrawal Approved - Investo",
+            html: withdrawalApprovalTemplate(withdrawal),
+          };
+          // Send email using the transporter
+          await transporter.sendMail(mailOptions);
+          console.log(
+            "Withdrawal approval email sent to:",
+            withdrawalUser.email
+          );
+        }
+      } catch (emailError) {
+        // Log the error but don't fail the entire process if email sending fails
+        console.error("Failed to send withdrawal approval email:", emailError);
+      }
+    } else if (status === "rejected") {
+      // Update transaction status
+      if (transaction) {
+        transaction.status = "failed";
+        await transaction.save();
+      }
+
+      // Send email notification if user has deposits notifications enabled
+      try {
+        // Check if user has withdrawal notifications enabled
+        const notificationsEnabled =
+          withdrawalUser.notifications &&
+          withdrawalUser.notifications.deposits !== false;
+
+        if (notificationsEnabled) {
+          // Import email template and transporter
+          const {
+            withdrawalRejectionTemplate,
+          } = require("../middlewares/utils");
+
+          // Email content
+          const mailOptions = {
+            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            to: withdrawalUser.email,
+            subject: "Update on Your Withdrawal Request - Investo",
+            html: withdrawalRejectionTemplate(withdrawal, adminNotes),
+          };
+          // Send email using the transporter
+          await transporter.sendMail(mailOptions);
+          console.log(
+            "Withdrawal rejection email sent to:",
+            withdrawalUser.email
+          );
+        }
+      } catch (emailError) {
+        // Log the error but don't fail the entire process if email sending fails
+        console.error("Failed to send withdrawal rejection email:", emailError);
+      }
+    }
+
+    await withdrawal.save();
+    res.json(withdrawal);
+  } catch (error) {
+    console.error("REVIEW WITHDRAWAL ERROR", error);
+    res.status(500).json({ error: "Error processing withdrawal review" });
   }
 };
