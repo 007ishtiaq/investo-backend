@@ -372,11 +372,77 @@ const depositNotificationTemplate = (deposit, plan) => {
     </p>
   `;
 };
-
+const depositRejectionTemplate = (deposit, adminNotes) => {
+  return `
+    <h1>Update on Your Deposit Request</h1>
+    <p>Hi there,</p>
+    <p>We're writing to inform you about the status of your recent deposit request.</p>
+   
+    <h2>[Deposit ID: ${deposit._id.toString()}] (${
+    new Date(deposit.approvedAt).toISOString().split("T")[0]
+  })</h2>
+    
+    <div style="background-color: #fff8f8; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; color: #dc3545; font-weight: bold;">Your deposit request has not been approved at this time.</p>
+    </div>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+      <tr style="background-color: #f8f9fa;">
+        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
+        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${deposit.amount.toFixed(
+          2
+        )}</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6; color: #dc3545;">Rejected</td>
+      </tr>
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Date Reviewed:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${new Date(
+          deposit.approvedAt
+        ).toLocaleString()}</td>
+      </tr>
+    </table>
+    ${
+      adminNotes
+        ? `
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+      <p style="margin: 0 0 10px 0;"><strong>Additional Information:</strong></p>
+      <p style="margin: 0;">${adminNotes}</p>
+    </div>
+    `
+        : ""
+    }
+    <p>You can try submitting a new deposit request or contact our customer support if you need further assistance with this matter.</p>
+    
+    <div style="padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
+      <p style="margin: 0;"><strong>What to do next?</strong></p>
+      <ul style="margin-top: 10px; padding-left: 20px;">
+        <li>Check if your payment details were correct</li>
+        <li>Make sure your deposit meets our minimum requirements</li>
+        <li>Submit a new deposit request if needed</li>
+        <li>Contact our support team for assistance</li>
+      </ul>
+    </div>
+    
+    <p>Thank you for your understanding. We value your business and look forward to serving you better.</p>
+    <hr/>
+    <p>
+      Best regards,<br/>
+      Investo Team
+    </p>
+  `;
+};
 module.exports = {
   transporter,
   orderReceipttemplate,
   generateInvoicePDF,
   otpEmailtemplate,
   depositNotificationTemplate,
+  depositRejectionTemplate,
 };
