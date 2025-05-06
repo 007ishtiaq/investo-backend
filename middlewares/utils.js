@@ -2,6 +2,7 @@ const nodemailer = require("nodemailer");
 const fs = require("fs");
 const path = require("path");
 const PDFDocument = require("pdfkit");
+const User = require("../models/user");
 
 // Create a transporter using Mailjet's SMTP
 const transporter = nodemailer.createTransport({

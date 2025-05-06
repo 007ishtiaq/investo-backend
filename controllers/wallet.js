@@ -171,6 +171,13 @@ exports.getTransactionHistory = async (req, res) => {
 exports.withdraw = async (req, res) => {
   try {
     const { amount, paymentMethod, walletAddress, bankDetails } = req.body;
+    console.log(
+      "hitting withdraw",
+      amount,
+      paymentMethod,
+      walletAddress,
+      bankDetails
+    );
 
     // Validate input
     if (!amount || !paymentMethod) {
@@ -190,19 +197,15 @@ exports.withdraw = async (req, res) => {
       ["bitcoin", "ethereum", "litecoin"].includes(paymentMethod) &&
       !walletAddress
     ) {
-      return res
-        .status(400)
-        .json({
-          error: `Wallet address is required for ${paymentMethod} withdrawals`,
-        });
+      return res.status(400).json({
+        error: `Wallet address is required for ${paymentMethod} withdrawals`,
+      });
     }
 
     if (paymentMethod === "bank_transfer" && !bankDetails) {
-      return res
-        .status(400)
-        .json({
-          error: "Bank details are required for bank transfer withdrawals",
-        });
+      return res.status(400).json({
+        error: "Bank details are required for bank transfer withdrawals",
+      });
     }
 
     // Check if user has a wallet
@@ -235,20 +238,6 @@ exports.withdraw = async (req, res) => {
     });
 
     await newWithdrawal.save();
-
-    // Create a transaction record for the pending withdrawal
-    const newTransaction = new Transaction({
-      email: req.user.email,
-      walletId: wallet._id,
-      amount: parseFloat(amount),
-      type: "debit", // Withdrawal is a debit from user's wallet
-      status: "pending", // Will be updated to completed when withdrawal is approved
-      source: "withdrawal",
-      description: `Withdrawal request via ${paymentMethod}`,
-      reference: newWithdrawal._id.toString(),
-    });
-
-    await newTransaction.save();
 
     res.json({
       success: true,
