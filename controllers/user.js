@@ -1,5 +1,6 @@
 // server/controllers/user.js (additions for level management)
 const User = require("../models/user");
+const Transaction = require("../models/transaction");
 
 // Get all users for admin
 exports.getUsers = async (req, res) => {
@@ -176,5 +177,239 @@ exports.updateNotificationPreferences = async (req, res) => {
   } catch (error) {
     console.error("UPDATE NOTIFICATION PREFERENCES ERROR", error);
     res.status(500).json({ error: "Server error" });
+  }
+};
+
+// Get total deposits for a user
+exports.getTotalDeposits = async (req, res) => {
+  try {
+    const email = req.user.email;
+    // Aggregate total successful deposits
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          source: "deposit",
+          status: "completed",
+          type: "credit",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Return 0 if no deposits found
+    const total = result.length > 0 ? result[0].total : 0;
+    res.json({
+      success: true,
+      total,
+    });
+  } catch (error) {
+    console.error("GET_TOTAL_DEPOSITS_ERROR", error);
+    res.status(500).json({
+      error: "Error fetching total deposits",
+    });
+  }
+};
+// Get total withdrawals for a user
+exports.getTotalWithdrawals = async (req, res) => {
+  try {
+    const email = req.user.email;
+    // Aggregate total successful withdrawals
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          source: "withdrawal",
+          status: "completed",
+          type: "debit",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Return 0 if no withdrawals found
+    const total = result.length > 0 ? result[0].total : 0;
+    res.json({
+      success: true,
+      total,
+    });
+  } catch (error) {
+    console.error("GET_TOTAL_WITHDRAWALS_ERROR", error);
+    res.status(500).json({
+      error: "Error fetching total withdrawals",
+    });
+  }
+};
+// Get team earnings for a user
+exports.getTeamEarnings = async (req, res) => {
+  try {
+    const email = req.user.email;
+    // Aggregate total referral earnings
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          source: "referral",
+          status: "completed",
+          type: "credit",
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Return 0 if no team earnings found
+    const total = result.length > 0 ? result[0].total : 0;
+    res.json({
+      success: true,
+      total,
+    });
+  } catch (error) {
+    console.error("GET_TEAM_EARNINGS_ERROR", error);
+    res.status(500).json({
+      error: "Error fetching team earnings",
+    });
+  }
+};
+
+// Get total earnings for a user (from all sources)
+exports.getTotalEarnings = async (req, res) => {
+  try {
+    const email = req.user.email;
+    // Aggregate total earnings from all sources
+    const result = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          type: "credit",
+          status: "completed",
+          $or: [
+            { source: "referral" },
+            { source: "task_reward" },
+            { source: "bonus" },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Get weekly earnings breakdown (for the progress)
+    const currentDate = new Date();
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(currentDate.getDate() - 7);
+
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(currentDate.getDate() - 14);
+    // This week's earnings
+    const thisWeekResult = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          type: "credit",
+          status: "completed",
+          createdAt: { $gte: oneWeekAgo },
+          $or: [
+            { source: "referral" },
+            { source: "task_reward" },
+            { source: "bonus" },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Last week's earnings
+    const lastWeekResult = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          type: "credit",
+          status: "completed",
+          createdAt: { $gte: twoWeeksAgo, $lt: oneWeekAgo },
+          $or: [
+            { source: "referral" },
+            { source: "task_reward" },
+            { source: "bonus" },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Get breakdown by earnings type
+    const breakdownResult = await Transaction.aggregate([
+      {
+        $match: {
+          email,
+          type: "credit",
+          status: "completed",
+          $or: [
+            { source: "referral" },
+            { source: "task_reward" },
+            { source: "bonus" },
+          ],
+        },
+      },
+      {
+        $group: {
+          _id: "$source",
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+    ]);
+    // Format the breakdown for easier frontend use
+    const breakdown = {};
+    breakdownResult.forEach((item) => {
+      breakdown[item._id] = item.total;
+    });
+    // Calculate growth rate
+    const thisWeekTotal =
+      thisWeekResult.length > 0 ? thisWeekResult[0].total : 0;
+    const lastWeekTotal =
+      lastWeekResult.length > 0 ? lastWeekResult[0].total : 0;
+
+    let weeklyGrowth = 0;
+    if (lastWeekTotal > 0) {
+      weeklyGrowth = ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100;
+    } else if (thisWeekTotal > 0) {
+      weeklyGrowth = 100; // 100% growth if there was nothing last week but earnings this week
+    }
+    // Return all the data
+    res.json({
+      success: true,
+      total: result.length > 0 ? result[0].total : 0,
+      thisWeek: thisWeekTotal,
+      lastWeek: lastWeekTotal,
+      weeklyGrowth: parseFloat(weeklyGrowth.toFixed(2)),
+      breakdown,
+    });
+  } catch (error) {
+    console.error("GET_TOTAL_EARNINGS_ERROR", error);
+    res.status(500).json({
+      error: "Error fetching total earnings",
+    });
   }
 };
