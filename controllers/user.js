@@ -1,8 +1,10 @@
 // server/controllers/user.js (additions for level management)
 const User = require("../models/user");
 const Transaction = require("../models/transaction");
+const Wallet = require("../models/wallet");
 
-// Get all users for admin
+// Get all users for admin with wallet balances
+// Get all users for admin with wallet balances and team info
 exports.getUsers = async (req, res) => {
   try {
     // Fetch all users, excluding sensitive information
@@ -10,7 +12,74 @@ exports.getUsers = async (req, res) => {
       .select("-__v -password") // Exclude sensitive fields
       .sort({ createdAt: -1 }); // Sort by newest first
 
-    res.json(users);
+    // Create a map of user IDs to user objects for easier referrer lookup
+    const userMap = {};
+    users.forEach((user) => {
+      userMap[user._id.toString()] = user;
+    });
+
+    // Get all wallets in a single query for efficiency
+    const wallets = await Wallet.find({
+      email: { $in: users.map((user) => user.email) },
+    });
+
+    // Create a lookup map for quick access to wallets
+    const walletMap = {};
+    wallets.forEach((wallet) => {
+      walletMap[wallet.email] = {
+        balance: wallet.balance,
+        currency: wallet.currency,
+        isActive: wallet.isActive,
+      };
+    });
+
+    // Process all users to add wallet data and team info
+    const usersWithData = users.map((user) => {
+      const userObject = user.toObject();
+
+      // Add wallet data
+      userObject.wallet = walletMap[user.email] || {
+        balance: 0,
+        currency: "USD",
+        isActive: true,
+      };
+
+      // Add team info
+      userObject.team = {
+        count: 0,
+        members: [],
+      };
+
+      return userObject;
+    });
+
+    // Count team members for each user
+    users.forEach((user) => {
+      if (user.referrer) {
+        const referrerId = user.referrer.toString();
+        // Find the referrer in our processed users array
+        const referrerIndex = usersWithData.findIndex(
+          (u) => u._id.toString() === referrerId
+        );
+
+        if (referrerIndex !== -1) {
+          // Increment the team count
+          usersWithData[referrerIndex].team.count += 1;
+
+          // Add to the team members array (limit to first 5 for performance)
+          if (usersWithData[referrerIndex].team.members.length < 5) {
+            usersWithData[referrerIndex].team.members.push({
+              _id: user._id,
+              name: user.name || "Anonymous",
+              email: user.email,
+              level: user.level || 1,
+            });
+          }
+        }
+      }
+    });
+
+    res.json(usersWithData);
   } catch (error) {
     console.error("Get users error:", error);
     res.status(500).json({ error: "Failed to fetch users" });

@@ -10,6 +10,9 @@ const {
   getWithdrawals,
   getWithdrawalById,
   reviewWithdrawal,
+  getAdminAnalytics,
+  searchUserByEmail,
+  createManualDeposit,
 } = require("../controllers/admin");
 
 // Withdrawal routes
@@ -20,6 +23,22 @@ router.put(
   authCheck,
   adminCheck,
   reviewWithdrawal
+);
+// Analytics route
+router.get("/admin/analytics", authCheck, adminCheck, getAdminAnalytics);
+
+// Add these routes to your admin routes
+router.get(
+  "/admin/user/search/:email",
+  authCheck,
+  adminCheck,
+  searchUserByEmail
+);
+router.post(
+  "/admin/deposit/manual",
+  authCheck,
+  adminCheck,
+  createManualDeposit
 );
 
 module.exports = router;
