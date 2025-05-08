@@ -24,7 +24,6 @@ exports.approveTask = async (req, res) => {
   try {
     // Change this line to match the route parameter name
     const userTaskId = req.params.userTaskId; // Changed from req.params.id
-    console.log("Processing approval for userTaskId:", userTaskId);
 
     // Find the user task submission
     const userTask = await UserTask.findById(userTaskId);
@@ -651,6 +650,122 @@ exports.getAdminAnalytics = async (req, res) => {
       },
     ]);
 
+    // Generate date labels for the past 30 days
+    const dateLabels = [];
+    const daysData = [];
+    for (let i = 30; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+
+      // Format date as MM/DD
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const formattedDate = `${month}/${day}`;
+
+      dateLabels.push(formattedDate);
+      daysData.push(date);
+    }
+
+    // Get daily deposits for the past 30 days
+    const depositsByDay = await Transaction.aggregate([
+      {
+        $match: {
+          source: "deposit",
+          status: "completed",
+          type: "credit",
+          createdAt: { $gte: thirtyDaysAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%m/%d", date: "$createdAt" },
+          },
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    // Get daily withdrawals for the past 30 days
+    const withdrawalsByDay = await Transaction.aggregate([
+      {
+        $match: {
+          source: "withdrawal",
+          status: "completed",
+          type: "debit",
+          createdAt: { $gte: thirtyDaysAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%m/%d", date: "$createdAt" },
+          },
+          total: { $sum: { $toDouble: "$amount" } },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    // Get daily user signups for the past 30 days
+    const userGrowthByDay = await User.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: thirtyDaysAgo },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%m/%d", date: "$createdAt" },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+    ]);
+
+    // Create lookup maps for faster access
+    const depositMap = {};
+    depositsByDay.forEach((item) => {
+      depositMap[item._id] = item.total;
+    });
+
+    const withdrawalMap = {};
+    withdrawalsByDay.forEach((item) => {
+      withdrawalMap[item._id] = item.total;
+    });
+
+    const userGrowthMap = {};
+    userGrowthByDay.forEach((item) => {
+      userGrowthMap[item._id] = item.count;
+    });
+
+    // Prepare arrays for chart data
+    const depositsData = [];
+    const withdrawalsData = [];
+    const userGrowthData = [];
+
+    // Fill in the arrays with data from each day
+    dateLabels.forEach((dateLabel) => {
+      // Format dateLabel to match MongoDB format
+      let parts = dateLabel.split("/");
+      let formattedLabel =
+        parts[0].padStart(2, "0") + "/" + parts[1].padStart(2, "0");
+
+      // Use lookup maps to get values
+      depositsData.push(depositMap[formattedLabel] || 0);
+      withdrawalsData.push(withdrawalMap[formattedLabel] || 0);
+      userGrowthData.push(userGrowthMap[formattedLabel] || 0);
+    });
+
     // Calculate percentage changes
     const currentMonthDeposits =
       totalDepositAmount.length > 0 ? totalDepositAmount[0].total : 0;
@@ -738,9 +853,14 @@ exports.getAdminAnalytics = async (req, res) => {
       pendingDeposits,
       pendingWithdrawals,
       pendingTasks,
-      // Charts data remains unchanged
+      // Add chart data
       charts: {
-        // (chart data implementation)
+        dateLabels: dateLabels,
+        financialTrend: {
+          deposits: depositsData,
+          withdrawals: withdrawalsData,
+        },
+        userGrowth: userGrowthData,
       },
     };
 
