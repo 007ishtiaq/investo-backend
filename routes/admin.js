@@ -13,6 +13,10 @@ const {
   getAdminAnalytics,
   searchUserByEmail,
   createManualDeposit,
+  getAllContactMessages,
+  getSingleContactMessage,
+  updateContactStatus,
+  addContactNote,
 } = require("../controllers/admin");
 
 // Withdrawal routes
@@ -40,5 +44,21 @@ router.post(
   adminCheck,
   createManualDeposit
 );
+
+// Contact management routes
+router.get("/admin/contacts", authCheck, adminCheck, getAllContactMessages);
+router.get(
+  "/admin/contact/:id",
+  authCheck,
+  adminCheck,
+  getSingleContactMessage
+);
+router.put(
+  "/admin/contact/:id/status",
+  authCheck,
+  adminCheck,
+  updateContactStatus
+);
+router.post("/admin/contact/:id/note", authCheck, adminCheck, addContactNote);
 
 module.exports = router;

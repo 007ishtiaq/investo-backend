@@ -11,6 +11,7 @@ const Wallet = require("../models/wallet");
 const InvestmentPlan = require("../models/investmentPlan");
 const Deposit = require("../models/deposit");
 const Investment = require("../models/investment");
+const Contact = require("../models/contact");
 
 const {
   transporter,
@@ -998,5 +999,92 @@ exports.createManualDeposit = async (req, res) => {
   } catch (error) {
     console.error("CREATE_MANUAL_DEPOSIT_ERROR", error);
     return res.status(500).json({ error: "Error creating manual deposit" });
+  }
+};
+
+// Get all contact messages
+exports.getAllContactMessages = async (req, res) => {
+  try {
+    const contacts = await Contact.find({})
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .exec();
+    res.json(contacts);
+  } catch (error) {
+    console.error("Get contacts error:", error);
+    res.status(500).json({ error: "Error fetching contact messages" });
+  }
+};
+// Get single contact message
+exports.getSingleContactMessage = async (req, res) => {
+  try {
+    const contact = await Contact.findById(req.params.id).exec();
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact message not found" });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    console.error("Get contact error:", error);
+    res.status(500).json({ error: "Error fetching contact message" });
+  }
+};
+// Update contact message status
+exports.updateContactStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: "Status is required" });
+    }
+
+    const contact = await Contact.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    ).exec();
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact message not found" });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    console.error("Update contact status error:", error);
+    res.status(500).json({ error: "Error updating contact status" });
+  }
+};
+// Add note to contact message
+exports.addContactNote = async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: "Note text is required" });
+    }
+
+    const admin = await User.findOne({ email: req.user.email }).exec();
+
+    const contact = await Contact.findByIdAndUpdate(
+      req.params.id,
+      {
+        $push: {
+          notes: {
+            text,
+            createdBy: admin.name || admin.email,
+          },
+        },
+      },
+      { new: true }
+    ).exec();
+
+    if (!contact) {
+      return res.status(404).json({ error: "Contact message not found" });
+    }
+
+    res.json(contact);
+  } catch (error) {
+    console.error("Add contact note error:", error);
+    res.status(500).json({ error: "Error adding note to contact" });
   }
 };
