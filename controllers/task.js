@@ -313,12 +313,6 @@ exports.verifyTask = async (req, res) => {
     const userEmail = req.user.email;
     const verificationData = req.body;
 
-    // console.log("Task verification request with email:", {
-    //   taskId,
-    //   userEmail,
-    //   verificationData,
-    // });
-
     // Find the task
     const task = await Task.findById(taskId);
     if (!task) {
@@ -327,6 +321,8 @@ exports.verifyTask = async (req, res) => {
         message: "Task not found",
       });
     }
+
+    console.log("task", task);
 
     // First, find the user by email to get the proper userId
     const user = await User.findOne({ email: userEmail });
@@ -344,11 +340,6 @@ exports.verifyTask = async (req, res) => {
     let userTask = await UserTask.findOne({
       userId: userId,
       taskId: taskId,
-    });
-
-    console.log("UserTask lookup result:", {
-      found: !!userTask,
-      userTaskData: userTask ? userTask._id : null,
     });
 
     // If not found, create a new user task entry matching the schema structure
@@ -371,7 +362,6 @@ exports.verifyTask = async (req, res) => {
 
       // Save the new user task
       await userTask.save();
-      // console.log("Created new UserTask:", userTask._id);
     }
 
     if (userTask.completed) {
@@ -381,12 +371,18 @@ exports.verifyTask = async (req, res) => {
       });
     }
 
-    // Handle task verification based on task type
-    if (task.type === "youtube_watch" && verificationData.autoVerified) {
-      try {
+    // Handle YouTube watch task verification
+    if (task.type === "youtube_watch") {
+      // Check if the task is set to auto-verify
+      if (task.autoVerify) {
         // Verify the user has watched the required duration
-        const watchedDuration = parseInt(verificationData.watchedDuration || 0);
+        // Use watchTime instead of watchedDuration based on the data structure
+        const watchedDuration = parseInt(verificationData.watchTime || 0);
         const requiredDuration = parseInt(task.videoDuration || 30);
+
+        console.log(
+          `Watched: ${watchedDuration}s, Required: ${requiredDuration}s`
+        );
 
         if (watchedDuration < requiredDuration) {
           return res.status(400).json({
@@ -395,46 +391,45 @@ exports.verifyTask = async (req, res) => {
           });
         }
 
-        // Mark task as completed
-        userTask.completed = true;
-        userTask.verified = true;
-        userTask.status = "approved";
-        userTask.completedAt = new Date();
-        userTask.updatedAt = new Date();
-
         try {
-          // Save the task first to mark it as completed
+          // Mark task as completed
+          userTask.completed = true;
+          userTask.verified = true;
+          userTask.status = "approved";
+          userTask.completedAt = new Date();
+          userTask.updatedAt = new Date();
+
+          // Save the updated task status
           await userTask.save();
 
-          // Then credit the reward to user's wallet using email
+          // Credit the reward to user's wallet
           await creditRewardToWallet(
             userEmail,
             task.reward,
-            "task_reward", // Changed from 'task' to 'task_reward'
+            "task_reward",
             `Reward for completing "${task.title}"`
           );
+
+          // Return success response
+          return res.status(200).json({
+            success: true,
+            message: `Task completed! ${task.reward.toFixed(
+              2
+            )} USD has been added to your wallet.`,
+            reward: task.reward,
+          });
         } catch (walletError) {
-          console.error("Error crediting wallet:", walletError);
+          console.error("Error processing YouTube task reward:", walletError);
           return res.status(500).json({
             success: false,
-            message: "Error crediting wallet: " + walletError.message,
+            message: "Error crediting reward: " + walletError.message,
           });
         }
-
-        return res.status(200).json({
-          success: true,
-          message: `Task completed! ${task.reward.toFixed(
-            3
-          )} USD has been added to your wallet.`,
-        });
-      } catch (innerError) {
-        console.error("Error in YouTube task processing:", innerError);
-        return res.status(500).json({
-          success: false,
-          message: "Error processing YouTube task: " + innerError.message,
-        });
       }
-    } else if (task.type === "screenshot") {
+    }
+
+    // Handle screenshot task verification
+    else if (task.type === "screenshot") {
       // Check if screenshot was provided
       if (verificationData.screenshot) {
         try {
@@ -447,20 +442,17 @@ exports.verifyTask = async (req, res) => {
             }
           );
 
-          console.log("Screenshot uploaded:", uploadResult.secure_url);
-
           // Store the image URL in the userTask
           userTask.screenshot = uploadResult.secure_url;
-          verificationData.screenshotUrl = uploadResult.secure_url;
+          userTask.verificationData = {
+            ...verificationData,
+            screenshotUrl: uploadResult.secure_url,
+          };
 
-          // For screenshot tasks, we set this flag to true
-          // but don't mark as verified immediately
-          requiresManualVerification = true;
-
-          // Set status to "pending verification" instead of completing immediately
+          // Set status to pending verification
           userTask.status = "pending_verification";
           userTask.submittedAt = new Date();
-          userTask.verificationData = verificationData;
+          userTask.updatedAt = new Date();
 
           await userTask.save();
 
@@ -485,7 +477,13 @@ exports.verifyTask = async (req, res) => {
       }
     }
 
-    // Rest of the function remains the same...
+    // Handle unsupported task types
+    else {
+      return res.status(400).json({
+        success: false,
+        message: "Unsupported task type or verification method.",
+      });
+    }
   } catch (err) {
     console.error("Error verifying task:", err);
     return res.status(500).json({
