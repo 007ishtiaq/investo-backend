@@ -2,6 +2,7 @@
 const User = require("../models/user");
 const Transaction = require("../models/transaction");
 const Wallet = require("../models/wallet");
+const InvestmentPlan = require("../models/investmentPlan");
 
 // Get all users for admin with wallet balances
 // Get all users for admin with wallet balances and team info
@@ -120,6 +121,82 @@ exports.updateUserLevel = async (req, res) => {
   } catch (error) {
     console.error("Update user level error:", error);
     res.status(500).json({ error: "Failed to update user level" });
+  }
+};
+
+// Upgrade user's plan directly (changes user level based on plan)
+exports.upgradePlan = async (req, res) => {
+  try {
+    const founduser = await User.findOne({ email: req.user.email }).exec();
+    const { planId } = req.body;
+    const userId = founduser._id;
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Find the plan
+    const plan = await InvestmentPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ error: "Plan not found" });
+    }
+
+    // Check if the plan's level is higher than the user's current level
+    if (plan.minLevel <= user.level) {
+      return res.status(400).json({
+        error:
+          "You cannot upgrade to a plan with a level lower or equal to your current level",
+      });
+    }
+
+    // Check if user has enough wallet balance
+    if (user.balance < plan.minAmount) {
+      return res.status(400).json({
+        error: "Insufficient wallet balance for this upgrade",
+      });
+    }
+
+    // Deduct amount from user's balance
+    user.balance -= plan.minAmount;
+
+    // Update user's level to the plan's level
+    user.level = plan.minLevel;
+
+    // Save the changes
+    await user.save();
+
+    // Record transaction (if you have a transaction model)
+    // This is optional but recommended for financial tracking
+    /* 
+    const transaction = new Transaction({
+      user: userId,
+      type: 'plan_upgrade',
+      amount: plan.minAmount,
+      description: `Upgraded to ${plan.name}`,
+      status: 'completed'
+    });
+    await transaction.save();
+    */
+
+    // Return success response
+    res.json({
+      success: true,
+      message: `Successfully upgraded to ${plan.name}`,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        level: user.level,
+        balance: user.balance,
+      },
+    });
+  } catch (error) {
+    console.error("Plan upgrade error:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while processing your plan upgrade" });
   }
 };
 

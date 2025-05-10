@@ -13,6 +13,7 @@ const {
   getTotalWithdrawals,
   getTeamEarnings,
   getTotalEarnings,
+  upgradePlan,
 } = require("../controllers/user");
 
 // User management
@@ -31,5 +32,7 @@ router.get("/wallet/total-withdrawals", authCheck, getTotalWithdrawals);
 router.get("/wallet/team-earnings", authCheck, getTeamEarnings);
 // Get total earnings (all sources)
 router.get("/wallet/total-earnings", authCheck, getTotalEarnings);
+
+router.post("/user/upgrade-plan", authCheck, upgradePlan);
 
 module.exports = router;
