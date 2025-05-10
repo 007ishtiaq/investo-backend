@@ -1,8 +1,5 @@
 // functions/affiliateRewards.js
-const User = require("../models/User");
-const Wallet = require("../models/Wallet");
-const Transaction = require("../models/Transaction");
-const AffiliateReward = require("../models/AffiliateReward");
+const mongoose = require("mongoose");
 const commissionRates = require("../config/commissionRates");
 
 // Helper function to calculate reward amount
@@ -28,6 +25,12 @@ const calculateRewardAmount = (
 const processAffiliateRewards = async () => {
   try {
     console.log("Starting daily affiliate rewards processing...");
+
+    // Get models when the function runs, not when the file loads
+    const User = mongoose.model("User");
+    const Wallet = mongoose.model("Wallet");
+    const Transaction = mongoose.model("Transaction");
+    const AffiliateReward = mongoose.model("AffiliateReward");
 
     // Get all users who have at least one referral
     const referrers = await User.find({}).exec();
