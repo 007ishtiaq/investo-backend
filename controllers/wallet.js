@@ -244,6 +244,23 @@ exports.withdraw = async (req, res) => {
 
     await newWithdrawal.save();
 
+    // Create a transaction record with pending status
+    await new Transaction({
+      email: user.email,
+      walletId: wallet._id,
+      amount: parseFloat(amount),
+      type: "debit", // This will be a debit when approved
+      status: "pending", // Start as pending until approved
+      source: "withdrawal",
+      reference: newWithdrawal._id.toString(),
+      description: `Withdrawal request under verification - ${paymentMethod}`,
+      metadata: {
+        paymentMethod: paymentMethod,
+        walletAddress: walletAddress || null,
+        bankDetails: bankDetails || null,
+      },
+    }).save();
+
     res.json({
       success: true,
       message: "Withdrawal request submitted successfully",
@@ -313,10 +330,11 @@ exports.reviewWithdrawal = async (req, res) => {
       return res.status(404).json({ error: "Wallet not found" });
     }
 
-    // Find the transaction
-    const transaction = await Transaction.findOne({
+    // Find the pending transaction
+    const pendingTransaction = await Transaction.findOne({
       reference: withdrawalId,
       source: "withdrawal",
+      status: "pending",
     });
 
     // Update withdrawal status
@@ -341,10 +359,20 @@ exports.reviewWithdrawal = async (req, res) => {
       wallet.lastUpdated = new Date();
       await wallet.save();
 
-      // Update transaction status
-      if (transaction) {
-        transaction.status = "completed";
-        await transaction.save();
+      // Update transaction status and details
+      if (pendingTransaction) {
+        pendingTransaction.status = "completed";
+        pendingTransaction.description = `Withdrawal completed to ${withdrawal.paymentMethod}`;
+
+        // Update metadata with transaction ID if provided
+        if (transactionId) {
+          pendingTransaction.metadata = {
+            ...pendingTransaction.metadata,
+            transactionId: transactionId,
+          };
+        }
+
+        await pendingTransaction.save();
       }
 
       // Send email notification if user has withdrawals notifications enabled
@@ -374,10 +402,20 @@ exports.reviewWithdrawal = async (req, res) => {
         console.error("Failed to send withdrawal approval email:", emailError);
       }
     } else if (status === "rejected") {
-      // Update transaction status
-      if (transaction) {
-        transaction.status = "failed";
-        await transaction.save();
+      // Update transaction status and details
+      if (pendingTransaction) {
+        pendingTransaction.status = "failed";
+        pendingTransaction.description = `Withdrawal request rejected${
+          adminNotes ? `: ${adminNotes}` : ""
+        }`;
+
+        // Update metadata with rejection reason
+        pendingTransaction.metadata = {
+          ...pendingTransaction.metadata,
+          reason: adminNotes || "No reason provided",
+        };
+
+        await pendingTransaction.save();
       }
 
       // Send email notification if user has withdrawals notifications enabled

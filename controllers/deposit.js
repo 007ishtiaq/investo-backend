@@ -24,12 +24,40 @@ exports.createDeposit = async (req, res) => {
 
     const user = await User.findOne({ email: req.user.email });
 
+    // Create the deposit record
     const newDeposit = await new Deposit({
       user: user._id,
       amount,
       paymentMethod,
       transactionId,
       screenshotUrl,
+    }).save();
+
+    // Find or create wallet for the user (needed for transaction record)
+    let wallet = await Wallet.findOne({ email: user.email });
+
+    if (!wallet) {
+      // Create wallet if it doesn't exist
+      wallet = await new Wallet({
+        email: user.email,
+        balance: 0,
+      }).save();
+    }
+
+    // Create a transaction record with pending status
+    await new Transaction({
+      email: user.email,
+      walletId: wallet._id,
+      amount: amount,
+      type: "credit", // This will be a credit when approved
+      status: "pending", // Start as pending until approved
+      source: "deposit",
+      reference: newDeposit._id.toString(),
+      description: `Deposit request under verification - ${paymentMethod}`,
+      metadata: {
+        paymentMethod: paymentMethod,
+        transactionId: transactionId || null,
+      },
     }).save();
 
     res.json(newDeposit);
@@ -137,6 +165,13 @@ exports.reviewDeposit = async (req, res) => {
       return res.status(404).json({ error: "Depositor user not found" });
     }
 
+    // Find the pending transaction for this deposit
+    const pendingTransaction = await Transaction.findOne({
+      reference: depositId,
+      source: "deposit",
+      status: "pending",
+    });
+
     // Handle approval flow
     if (status === "approved" && planId) {
       const plan = await InvestmentPlan.findById(planId);
@@ -182,21 +217,33 @@ exports.reviewDeposit = async (req, res) => {
       wallet.lastUpdated = new Date();
       await wallet.save();
 
-      // Record transaction for approved deposit - use valid enum values
-      await new Transaction({
-        email: depositor.email,
-        walletId: wallet._id,
-        amount: deposit.amount,
-        type: "credit", // Valid enum value
-        status: "completed", // Valid enum value
-        source: "deposit",
-        reference: deposit._id.toString(),
-        description: `Deposit approved for investment in ${plan.name}`,
-        metadata: {
+      // Update existing transaction if found, or create a new one if not
+      if (pendingTransaction) {
+        pendingTransaction.status = "completed";
+        pendingTransaction.description = `Deposit approved for investment in ${plan.name}`;
+        pendingTransaction.amount = deposit.amount; // Update amount in case it was changed
+        pendingTransaction.metadata = {
           planId: plan._id,
           planName: plan.name,
-        },
-      }).save();
+        };
+        await pendingTransaction.save();
+      } else {
+        // If no pending transaction found, create a new one
+        await new Transaction({
+          email: depositor.email,
+          walletId: wallet._id,
+          amount: deposit.amount,
+          type: "credit",
+          status: "completed",
+          source: "deposit",
+          reference: deposit._id.toString(),
+          description: `Deposit approved for investment in ${plan.name}`,
+          metadata: {
+            planId: plan._id,
+            planName: plan.name,
+          },
+        }).save();
+      }
 
       // Send email notification for approved deposit if user has deposits notifications enabled
       try {
@@ -240,22 +287,35 @@ exports.reviewDeposit = async (req, res) => {
         }).save();
       }
 
-      // Record transaction for rejected deposit - use valid enum values
-      await new Transaction({
-        email: depositor.email,
-        walletId: wallet._id,
-        amount: deposit.amount,
-        type: "debit", // Changed to a valid enum value
-        status: "failed", // Valid enum value
-        source: "deposit",
-        reference: deposit._id.toString(),
-        description: `Deposit request rejected${
+      // Update existing transaction if found, or create a new one if not
+      if (pendingTransaction) {
+        pendingTransaction.status = "failed";
+        pendingTransaction.description = `Deposit request rejected${
           adminNotes ? `: ${adminNotes}` : ""
-        }`,
-        metadata: {
+        }`;
+        pendingTransaction.amount = deposit.amount; // Update amount in case it was changed
+        pendingTransaction.metadata = {
           reason: adminNotes || "No reason provided",
-        },
-      }).save();
+        };
+        await pendingTransaction.save();
+      } else {
+        // If no pending transaction found, create a new one
+        await new Transaction({
+          email: depositor.email,
+          walletId: wallet._id,
+          amount: deposit.amount,
+          type: "debit", // For rejected deposits
+          status: "failed",
+          source: "deposit",
+          reference: deposit._id.toString(),
+          description: `Deposit request rejected${
+            adminNotes ? `: ${adminNotes}` : ""
+          }`,
+          metadata: {
+            reason: adminNotes || "No reason provided",
+          },
+        }).save();
+      }
 
       // Send email notification for rejected deposit if user has deposits notifications enabled
       try {
