@@ -487,6 +487,9 @@ exports.getAdminAnalytics = async (req, res) => {
       status: "pending",
     });
 
+    // Get new contact messages count
+    const newContactMessages = await Contact.countDocuments({ status: "new" });
+
     // Get user levels distribution
     const userLevels = await User.aggregate([
       {
@@ -854,6 +857,7 @@ exports.getAdminAnalytics = async (req, res) => {
       pendingDeposits,
       pendingWithdrawals,
       pendingTasks,
+      newContactMessages,
       // Add chart data
       charts: {
         dateLabels: dateLabels,
