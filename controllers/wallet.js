@@ -3,6 +3,11 @@ const Wallet = require("../models/wallet");
 const Transaction = require("../models/transaction");
 const User = require("../models/user");
 const Withdrawal = require("../models/withdrawal");
+const {
+  transporter,
+  withdrawalNotificationTemplate,
+  withdrawalRejectionTemplate,
+} = require("../middlewares/utils");
 
 // Create wallet for a user if it doesn't exist
 exports.createUserWallet = async (email) => {
@@ -272,7 +277,7 @@ exports.getWithdrawals = async (req, res) => {
 exports.reviewWithdrawal = async (req, res) => {
   try {
     const { withdrawalId } = req.params;
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, transactionId } = req.body;
 
     if (!["approved", "rejected"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
@@ -320,6 +325,11 @@ exports.reviewWithdrawal = async (req, res) => {
     withdrawal.processedBy = adminUser._id;
     withdrawal.processedAt = new Date();
 
+    // Add transaction ID if provided (for approved withdrawals)
+    if (status === "approved" && transactionId) {
+      withdrawal.transactionId = transactionId;
+    }
+
     if (status === "approved") {
       // Check if user still has sufficient balance (in case they made other withdrawals)
       if (wallet.balance < withdrawal.amount) {
@@ -337,25 +347,20 @@ exports.reviewWithdrawal = async (req, res) => {
         await transaction.save();
       }
 
-      // Send email notification if user has deposits notifications enabled
+      // Send email notification if user has withdrawals notifications enabled
       try {
         // Check if user has withdrawal notifications enabled
         const notificationsEnabled =
           withdrawalUser.notifications &&
-          withdrawalUser.notifications.deposits !== false;
+          withdrawalUser.notifications.deposits === true;
 
         if (notificationsEnabled) {
-          // Import email template and transporter
-          const {
-            withdrawalApprovalTemplate,
-          } = require("../middlewares/utils");
-
           // Email content
           const mailOptions = {
             from: "Investo <ishtiaqahmad427427@gmail.com>",
             to: withdrawalUser.email,
             subject: "Withdrawal Approved - Investo",
-            html: withdrawalApprovalTemplate(withdrawal),
+            html: withdrawalNotificationTemplate(withdrawal),
           };
           // Send email using the transporter
           await transporter.sendMail(mailOptions);
@@ -375,19 +380,14 @@ exports.reviewWithdrawal = async (req, res) => {
         await transaction.save();
       }
 
-      // Send email notification if user has deposits notifications enabled
+      // Send email notification if user has withdrawals notifications enabled
       try {
         // Check if user has withdrawal notifications enabled
         const notificationsEnabled =
           withdrawalUser.notifications &&
-          withdrawalUser.notifications.deposits !== false;
+          withdrawalUser.notifications.deposits === true;
 
         if (notificationsEnabled) {
-          // Import email template and transporter
-          const {
-            withdrawalRejectionTemplate,
-          } = require("../middlewares/utils");
-
           // Email content
           const mailOptions = {
             from: "Investo <ishtiaqahmad427427@gmail.com>",

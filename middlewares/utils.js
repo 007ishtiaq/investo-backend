@@ -441,9 +441,9 @@ const depositRejectionTemplate = (deposit, adminNotes) => {
 };
 
 // Withdrawal approval email template
-const withdrawalApprovalTemplate = (withdrawal) => {
+const withdrawalNotificationTemplate = (withdrawal) => {
   return `
-    <h1>Your Withdrawal Has Been Approved!</h1>
+    <h1>Your Withdrawal Has Been Processed!</h1>
     <p>Hi there,</p>
     <p>We're pleased to inform you that your withdrawal request has been approved and processed.</p>
    
@@ -464,7 +464,7 @@ const withdrawalApprovalTemplate = (withdrawal) => {
       </tr>
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6; color: #10b981;">Approved</td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Approved</td>
       </tr>
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Payment Method:</strong></td>
@@ -473,21 +473,24 @@ const withdrawalApprovalTemplate = (withdrawal) => {
           withdrawal.paymentMethod.slice(1).replace("_", " ")
         }</td>
       </tr>
+      ${
+        withdrawal.transactionId
+          ? `
       <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Processed Date:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${new Date(
-          withdrawal.processedAt
-        ).toLocaleString()}</td>
+        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Transaction ID:</strong></td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${withdrawal.transactionId}</td>
       </tr>
+      `
+          : ""
+      }
     </table>
-
-    <p>The funds have been sent according to the payment details you provided.</p>
+    <p>Your funds have been successfully sent to your specified withdrawal destination.</p>
     
     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Please allow 24-48 hours for the funds to reflect in your account.</strong></p>
+      <p style="margin: 0;"><strong>Login to your account to view your transaction history and initiate new transactions.</strong></p>
     </div>
     
-    <p>Thank you for choosing our platform. If you have any questions, please don't hesitate to contact our support team.</p>
+    <p>Thank you for using our platform. If you have any questions, please don't hesitate to contact our support team.</p>
     <hr/>
     <p>
       Best regards,<br/>
@@ -496,20 +499,13 @@ const withdrawalApprovalTemplate = (withdrawal) => {
   `;
 };
 
-// Withdrawal rejection email template
 const withdrawalRejectionTemplate = (withdrawal, adminNotes) => {
   return `
     <h1>Update on Your Withdrawal Request</h1>
     <p>Hi there,</p>
-    <p>We're writing to inform you about the status of your recent withdrawal request.</p>
+    <p>We're writing to inform you that your recent withdrawal request has been reviewed and could not be processed at this time.</p>
    
-    <h2>[Withdrawal ID: ${withdrawal._id.toString()}] (${
-    new Date(withdrawal.processedAt).toISOString().split("T")[0]
-  })</h2>
-    
-    <div style="background-color: #fff8f8; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 4px;">
-      <p style="margin: 0; color: #dc3545; font-weight: bold;">Your withdrawal request has not been approved at this time.</p>
-    </div>
+    <h2>[Withdrawal ID: ${withdrawal._id.toString()}]</h2>
     
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
       <tr style="background-color: #f8f9fa;">
@@ -524,7 +520,7 @@ const withdrawalRejectionTemplate = (withdrawal, adminNotes) => {
       </tr>
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6; color: #dc3545;">Rejected</td>
+        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Rejected</td>
       </tr>
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Payment Method:</strong></td>
@@ -533,38 +529,17 @@ const withdrawalRejectionTemplate = (withdrawal, adminNotes) => {
           withdrawal.paymentMethod.slice(1).replace("_", " ")
         }</td>
       </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Date Reviewed:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${new Date(
-          withdrawal.processedAt
-        ).toLocaleString()}</td>
-      </tr>
     </table>
-
-    ${
-      adminNotes
-        ? `
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-      <p style="margin: 0 0 10px 0;"><strong>Reason:</strong></p>
-      <p style="margin: 0;">${adminNotes}</p>
-    </div>
-    `
-        : ""
-    }
-
-    <p>Your funds remain in your wallet and are available for future withdrawals.</p>
     
-    <div style="padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
-      <p style="margin: 0;"><strong>What to do next?</strong></p>
-      <ul style="margin-top: 10px; padding-left: 20px;">
-        <li>Check if your withdrawal details were correct</li>
-        <li>Make sure your withdrawal meets our minimum requirements</li>
-        <li>Submit a new withdrawal request if needed</li>
-        <li>Contact our support team for assistance</li>
-      </ul>
+    <div style="background-color: #fff8f8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 3px solid #dc3545;">
+      <p style="margin: 0 0 10px 0;"><strong>Reason for rejection:</strong></p>
+      <p style="margin: 0;">${
+        adminNotes ||
+        "No specific reason provided. Please contact support for more information."
+      }</p>
     </div>
     
-    <p>Thank you for your understanding. We value your business and look forward to serving you better.</p>
+    <p>Your funds remain in your wallet and are available for future withdrawals. If you have any questions about this decision or need assistance with a new withdrawal request, please contact our support team.</p>
     <hr/>
     <p>
       Best regards,<br/>
@@ -580,6 +555,6 @@ module.exports = {
   otpEmailtemplate,
   depositNotificationTemplate,
   depositRejectionTemplate,
-  withdrawalApprovalTemplate,
+  withdrawalNotificationTemplate,
   withdrawalRejectionTemplate,
 };
