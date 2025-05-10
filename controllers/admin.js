@@ -12,6 +12,7 @@ const InvestmentPlan = require("../models/investmentPlan");
 const Deposit = require("../models/deposit");
 const Investment = require("../models/investment");
 const Contact = require("../models/contact");
+const { processAffiliateRewards } = require("../functions/affiliateRewards");
 
 const {
   transporter,
@@ -1090,5 +1091,28 @@ exports.addContactNote = async (req, res) => {
   } catch (error) {
     console.error("Add contact note error:", error);
     res.status(500).json({ error: "Error adding note to contact" });
+  }
+};
+
+exports.triggerAffiliateRewards = async (req, res) => {
+  try {
+    // Verify admin role
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    const result = await processAffiliateRewards();
+
+    res.json({
+      success: true,
+      message: "Affiliate rewards processed successfully",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Failed to process affiliate rewards:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process affiliate rewards",
+    });
   }
 };

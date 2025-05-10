@@ -14,6 +14,7 @@ const {
   getTeamEarnings,
   getTotalEarnings,
   upgradePlan,
+  getAffiliateRewards,
 } = require("../controllers/user");
 
 // User management
@@ -34,5 +35,7 @@ router.get("/wallet/team-earnings", authCheck, getTeamEarnings);
 router.get("/wallet/total-earnings", authCheck, getTotalEarnings);
 
 router.post("/user/upgrade-plan", authCheck, upgradePlan);
+
+router.get("/affiliate-rewards", authCheck, getAffiliateRewards);
 
 module.exports = router;

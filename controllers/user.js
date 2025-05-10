@@ -3,6 +3,7 @@ const User = require("../models/user");
 const Transaction = require("../models/transaction");
 const Wallet = require("../models/wallet");
 const InvestmentPlan = require("../models/investmentPlan");
+const AffiliateReward = require("../models/AffiliateReward");
 
 // Get all users for admin with wallet balances
 // Get all users for admin with wallet balances and team info
@@ -580,5 +581,43 @@ exports.getTotalEarnings = async (req, res) => {
     res.status(500).json({
       error: "Error fetching total earnings",
     });
+  }
+};
+
+exports.getAffiliateRewards = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get user from authentication
+    const user = await User.findOne({ email: req.user.email });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get rewards with pagination
+    const rewards = await AffiliateReward.find({ user: user._id })
+      .populate("referralUser", "name email level")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination
+    const total = await AffiliateReward.countDocuments({ user: user._id });
+
+    res.json({
+      success: true,
+      rewards,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching affiliate rewards:", error);
+    res.status(500).json({ error: "Failed to fetch affiliate rewards" });
   }
 };
