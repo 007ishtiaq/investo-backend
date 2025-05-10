@@ -224,7 +224,17 @@ exports.getCurrentUser = async (req, res) => {
     }
 
     // Don't send sensitive information
-    const { name, email, contact, role, affiliateCode, level, _id } = user;
+    const {
+      name,
+      email,
+      contact,
+      role,
+      affiliateCode,
+      level,
+      _id,
+      profileImage,
+      notifications,
+    } = user;
 
     res.json({
       _id,
@@ -234,6 +244,8 @@ exports.getCurrentUser = async (req, res) => {
       role,
       affiliateCode,
       level,
+      profileImage,
+      notifications,
     });
   } catch (error) {
     console.error("GET CURRENT USER ERROR", error);
@@ -244,27 +256,37 @@ exports.getCurrentUser = async (req, res) => {
 // Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, contact } = req.body;
+    const { name, contact, profileImage } = req.body;
 
     // Validate input
     if (!name) {
       return res.status(400).json({ error: "Name is required" });
     }
+    // Prepare update object
+    const updateData = { name, contact };
 
+    // Only add profileImage to update if it exists
+    if (profileImage) {
+      updateData.profileImage = profileImage;
+    }
     // Find and update user
     const updated = await User.findOneAndUpdate(
       { email: req.user.email },
-      { name, contact },
+      updateData,
       { new: true }
     ).exec();
-
     if (!updated) {
       return res.status(404).json({ error: "User not found" });
     }
-
     // Don't send sensitive information
-    const { email, role, affiliateCode, level, _id } = updated;
-
+    const {
+      email,
+      role,
+      affiliateCode,
+      level,
+      _id,
+      profileImage: updatedProfileImage,
+    } = updated;
     res.json({
       _id,
       name: updated.name,
@@ -273,6 +295,7 @@ exports.updateProfile = async (req, res) => {
       role,
       affiliateCode,
       level,
+      profileImage: updatedProfileImage,
     });
   } catch (error) {
     console.error("UPDATE PROFILE ERROR", error);

@@ -12,6 +12,10 @@ const userSchema = new mongoose.Schema(
     contact: {
       type: String,
     },
+    profileImage: {
+      type: String,
+      default: "", // URL to Cloudinary image
+    },
     role: {
       type: String,
       default: "subscriber",
