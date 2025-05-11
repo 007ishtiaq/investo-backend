@@ -48,12 +48,12 @@ const { processAffiliateRewards } = require("../functions/affiliateRewards");
 
 // Schedule the task to run at midnight every day (normal mode)
 const scheduleAffiliateRewards = () => {
-  console.log("Scheduling affiliate rewards task...");
+  // console.log("Scheduling affiliate rewards task...");
   // DEMO MODE: Run every 4 seconds instead of midnight
   const isDemoMode = true; // Set to false to revert to normal midnight schedule
 
   if (isDemoMode) {
-    console.log("🚀 DEMO MODE: Running affiliate rewards every 4 seconds");
+    // console.log("🚀 DEMO MODE: Running affiliate rewards every 4 seconds");
 
     // Initial run
     setTimeout(async () => {
@@ -73,11 +73,11 @@ const scheduleAffiliateRewards = () => {
         // Schedule next day's run
         scheduleNextRun();
       }, timeUntilMidnight);
-      console.log(
-        `Next affiliate rewards run scheduled in ${Math.floor(
-          timeUntilMidnight / 3600000
-        )} hours`
-      );
+      // console.log(
+      //   `Next affiliate rewards run scheduled in ${Math.floor(
+      //     timeUntilMidnight / 3600000
+      //   )} hours`
+      // );
     };
     // Start the scheduling loop for normal mode
     scheduleNextRun();
@@ -98,12 +98,12 @@ const getTimeUntilMidnight = () => {
 };
 // Extract the reward processing into a separate function for reuse
 const runAffiliateRewards = async () => {
-  console.log("Running affiliate rewards task...");
+  // console.log("Running affiliate rewards task...");
   try {
     const result = await processAffiliateRewards();
-    console.log("✅ Affiliate rewards task completed:", result);
+    // console.log("✅ Affiliate rewards task completed:", result);
   } catch (error) {
-    console.error("❌ Error in affiliate rewards task:", error);
+    // console.error("❌ Error in affiliate rewards task:", error);
   }
 };
 

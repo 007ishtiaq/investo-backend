@@ -9,7 +9,6 @@ const { authCheck, adminCheck } = require("../middlewares/auth");
 const {
   getWithdrawals,
   getWithdrawalById,
-  reviewWithdrawal,
   getAdminAnalytics,
   searchUserByEmail,
   createManualDeposit,
@@ -22,12 +21,7 @@ const {
 // Withdrawal routes
 router.get("/admin/withdrawals", authCheck, adminCheck, getWithdrawals);
 router.get("/admin/withdrawal/:id", authCheck, adminCheck, getWithdrawalById);
-router.put(
-  "/admin/withdrawal/:id/review",
-  authCheck,
-  adminCheck,
-  reviewWithdrawal
-);
+
 // Analytics route
 router.get("/admin/analytics", authCheck, adminCheck, getAdminAnalytics);
 

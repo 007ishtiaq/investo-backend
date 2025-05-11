@@ -24,7 +24,7 @@ const calculateRewardAmount = (
 // Get all users who are referrers
 const processAffiliateRewards = async () => {
   try {
-    console.log("Starting daily affiliate rewards processing...");
+    // console.log("Starting daily affiliate rewards processing...");
 
     // Get models when the function runs, not when the file loads
     const User = mongoose.model("User");
@@ -122,11 +122,11 @@ const processAffiliateRewards = async () => {
       }
     }
 
-    console.log(
-      `Affiliate rewards processed: $${totalRewardsProcessed.toFixed(
-        2
-      )} for ${totalUsersRewarded} users`
-    );
+    // console.log(
+    //   `Affiliate rewards processed: $${totalRewardsProcessed.toFixed(
+    //     2
+    //   )} for ${totalUsersRewarded} users`
+    // );
     return {
       success: true,
       totalRewardsProcessed,
