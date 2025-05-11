@@ -6,13 +6,31 @@ const InvestmentPlan = require("../models/investmentPlan");
 const AffiliateReward = require("../models/AffiliateReward");
 
 // Get all users for admin with wallet balances
-// Get all users for admin with wallet balances and team info
 exports.getUsers = async (req, res) => {
   try {
-    // Fetch all users, excluding sensitive information
-    const users = await User.find({})
+    // Get pagination parameters from request
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get search parameter
+    const emailSearch = req.query.email || "";
+
+    // Build query
+    let query = {};
+    if (emailSearch) {
+      query.email = { $regex: emailSearch, $options: "i" };
+    }
+
+    // Count total users matching query for pagination
+    const total = await User.countDocuments(query);
+
+    // Fetch users with pagination, excluding sensitive information
+    const users = await User.find(query)
       .select("-__v -password") // Exclude sensitive fields
-      .sort({ createdAt: -1 }); // Sort by newest first
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit);
 
     // Create a map of user IDs to user objects for easier referrer lookup
     const userMap = {};
@@ -81,7 +99,14 @@ exports.getUsers = async (req, res) => {
       }
     });
 
-    res.json(usersWithData);
+    res.json({
+      users: usersWithData,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+      },
+    });
   } catch (error) {
     console.error("Get users error:", error);
     res.status(500).json({ error: "Failed to fetch users" });

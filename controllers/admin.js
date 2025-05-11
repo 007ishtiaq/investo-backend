@@ -130,17 +130,32 @@ exports.rejectTask = async (req, res) => {
 // Get all withdrawals with optional status filter
 exports.getWithdrawals = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, page = 1, limit = 10 } = req.query;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
     let query = {};
     // Apply status filter if provided
     if (status && status !== "all") {
       query.status = status;
     }
 
-    const withdrawals = await Withdrawal.find(query)
-      .populate("user", "email username level") // Add level to the populated fields
+    // Count total documents for pagination
+    const total = await Withdrawal.countDocuments(query);
+
+    // If status is 'pending', don't apply pagination to ensure all pending items are shown
+    const withdrawalsQuery = Withdrawal.find(query)
+      .populate("user", "email username level")
       .populate("processedBy", "email username")
       .sort({ createdAt: -1 });
+
+    // Apply pagination only for 'all' status
+    if (status !== "pending") {
+      withdrawalsQuery.skip(skip).limit(limitNum);
+    }
+
+    const withdrawals = await withdrawalsQuery;
 
     // Get wallet balances for each user
     const withdrawalsWithWalletInfo = await Promise.all(
@@ -154,7 +169,20 @@ exports.getWithdrawals = async (req, res) => {
       })
     );
 
-    res.json(withdrawalsWithWalletInfo);
+    // Return with pagination data for 'all' status
+    if (status !== "pending") {
+      res.json({
+        withdrawals: withdrawalsWithWalletInfo,
+        pagination: {
+          currentPage: pageNum,
+          totalPages: Math.ceil(total / limitNum),
+          totalItems: total,
+        },
+      });
+    } else {
+      // For pending, just return the withdrawals
+      res.json(withdrawalsWithWalletInfo);
+    }
   } catch (error) {
     console.error("GET WITHDRAWALS ERROR:", error);
     res.status(500).json({ error: "Error fetching withdrawals" });
@@ -795,10 +823,29 @@ exports.createManualDeposit = async (req, res) => {
 // Get all contact messages
 exports.getAllContactMessages = async (req, res) => {
   try {
+    const { page = 1, limit = 10 } = req.query;
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Count total documents for pagination
+    const total = await Contact.countDocuments({});
+
+    // Get paginated contacts
     const contacts = await Contact.find({})
       .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limitNum)
       .exec();
-    res.json(contacts);
+
+    res.json({
+      contacts,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalItems: total,
+      },
+    });
   } catch (error) {
     console.error("Get contacts error:", error);
     res.status(500).json({ error: "Error fetching contact messages" });

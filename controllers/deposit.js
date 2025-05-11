@@ -93,16 +93,35 @@ exports.getUserDeposits = async (req, res) => {
 };
 
 // For admin: Get all deposit requests
+// For admin: Get all deposit requests
 exports.getAllDeposits = async (req, res) => {
   try {
+    // Get pagination parameters from request
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Count total deposits for pagination
+    const total = await Deposit.countDocuments({});
+
+    // Fetch deposits with pagination
     const deposits = await Deposit.find({})
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate("user", "email username")
       .populate("assignedPlan", "name")
       .populate("approvedBy", "email username")
       .exec();
 
-    res.json(deposits);
+    res.json({
+      deposits,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+      },
+    });
   } catch (error) {
     console.error("Get all deposits error:", error);
     res.status(500).json({ error: "Failed to fetch all deposits" });
