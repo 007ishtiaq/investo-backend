@@ -42,6 +42,11 @@ const taskSchema = new mongoose.Schema(
       type: Number,
       default: 1,
     },
+    // New fields for date control
+    displayDate: {
+      type: Date,
+      default: null, // When null, task is shown every day
+    },
     // Screenshot fields
     screenshotRequired: {
       type: Boolean,

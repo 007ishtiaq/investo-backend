@@ -6,6 +6,8 @@ const Transaction = require("../models/transaction");
 const mongoose = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 const Wallet = require("../models/wallet"); // Import Wallet model
+const moment = require("moment");
+const timeService = require("../cron/timeService");
 
 // Create a new task (admin only)
 exports.createTask = async (req, res) => {
@@ -21,31 +23,69 @@ exports.createTask = async (req, res) => {
   }
 };
 
-// Get all active tasks
+// Get all tasks for a user considering rotations
 exports.getAllTasks = async (req, res) => {
   try {
-    // If user is not logged in, only show level 1 tasks
-    if (!req.user) {
-      const tasks = await Task.find({ active: true, minLevel: 1 });
-      return res.json(tasks);
-    }
+    // Get user from the request (assuming it's added by auth middleware)
+    const user = req.user
+      ? await User.findOne({ email: req.user.email })
+      : null;
+    const userLevel = user ? user.level || 1 : 1; // Default to level 1 if not found
+    // Get today's date from internet time
+    const today = timeService.getStartOfToday();
+    const tomorrow = timeService.getStartOfTomorrow();
 
-    // Get user level from database
-    const user = await User.findOne({ email: req.user.email });
-    const userLevel = user ? user.level || 1 : 1;
-
-    // Find tasks with minLevel less than or equal to user's level
+    // console.log("Internet-based today:", today);
+    // console.log("Internet-based tomorrow:", tomorrow);
+    // Query with date range using internet time
     const tasks = await Task.find({
-      active: true,
-      minLevel: { $lte: userLevel },
+      $and: [
+        { active: true },
+        { minLevel: { $lte: userLevel } },
+        {
+          $or: [
+            {
+              displayDate: {
+                $gte: today,
+                $lt: tomorrow,
+              },
+            },
+            { displayDate: null },
+          ],
+        },
+      ],
     });
-
-    res.json(tasks);
+    // If the user is authenticated, include task completion status
+    if (user) {
+      // Get user's task completion status
+      const userTasks = await UserTask.find({ userId: user._id });
+      // Add completion status to each task
+      const tasksWithStatus = tasks.map((task) => {
+        const userTask = userTasks.find(
+          (ut) => ut.taskId.toString() === task._id.toString()
+        );
+        if (userTask) {
+          return {
+            ...task.toObject(),
+            completed: userTask.completed,
+            verified: userTask.verified,
+            startedAt: userTask.startedAt,
+            status: userTask.status,
+            rejectionReason: userTask.rejectionReason,
+          };
+        }
+        return task.toObject();
+      });
+      res.json(tasksWithStatus);
+    } else {
+      res.json(tasks);
+    }
   } catch (error) {
     console.error("Error getting tasks:", error);
-    res
-      .status(500)
-      .json({ message: "Failed to get tasks", error: error.message });
+    res.status(500).json({
+      message: "Failed to get tasks",
+      error: error.message,
+    });
   }
 };
 
