@@ -4,6 +4,8 @@ const InvestmentPlan = require("../models/investmentPlan");
 // Get all active investment plans
 exports.getAllPlans = async (req, res) => {
   try {
+    console.log("hitting route getAllPlans");
+
     const plans = await InvestmentPlan.find({ active: true })
       .sort({ minLevel: 1, minAmount: 1 })
       .exec();
@@ -12,27 +14,6 @@ exports.getAllPlans = async (req, res) => {
   } catch (error) {
     console.error("Get all plans error:", error);
     res.status(500).json({ error: "Failed to fetch investment plans" });
-  }
-};
-
-// Get plans available for the user's level
-exports.getPlansForUserLevel = async (req, res) => {
-  try {
-    const userLevel = req.user.level || 1;
-
-    const plans = await InvestmentPlan.find({
-      active: true,
-      minLevel: { $lte: userLevel },
-    })
-      .sort({ minLevel: 1, minAmount: 1 })
-      .exec();
-
-    res.json(plans);
-  } catch (error) {
-    console.error("Get user plans error:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to fetch available investment plans" });
   }
 };
 
