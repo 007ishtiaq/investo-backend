@@ -210,134 +210,125 @@ exports.creditReferralBonus = async (req, res) => {
   }
 };
 
-exports.getTeamEarnings = async (req, res) => {
-  try {
-    // Get models when the function runs, not when the file loads
-    const User = mongoose.model("User");
-    const Transaction = mongoose.model("Transaction");
-    const AffiliateReward = mongoose.model("AffiliateReward");
+// not in my use - but will provide team earing by daily, mothly, total, weekly, 5 recent rewads with time
+// exports.getTeamEarnings = async (req, res) => {
+//   try {
+//     const User = mongoose.model("User");
+//     const Transaction = mongoose.model("Transaction");
+//     const AffiliateReward = mongoose.model("AffiliateReward");
 
-    // Find the current user
-    const user = await User.findOne({ email: req.user.email });
+//     const user = await User.findOne({ email: req.user.email });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
 
-    // Get team members (users who have this user as their referrer)
-    const teamMembers = await User.find({ referrer: user._id });
+//     const teamMembers = await User.find({ referrer: user._id });
 
-    // Calculate date ranges
-    const now = new Date();
-    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+//     const now = new Date();
+//     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+//     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+//     const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    // Get affiliate rewards
-    const allRewards = await AffiliateReward.find({
-      user: user._id,
-    }).populate("referralUser", "name email level");
+//     const allRewards = await AffiliateReward.find({
+//       user: user._id,
+//     }).populate("referralUser", "name email level");
 
-    // Find transactions from referrals
-    const allTransactions = await Transaction.find({
-      email: user.email,
-      source: "referral",
-      status: "completed",
-    });
+//     const allTransactions = await Transaction.find({
+//       email: user.email,
+//       source: "referral",
+//       status: "completed",
+//     });
 
-    // Find recent transactions for specific time periods
-    const dailyTransactions = await Transaction.find({
-      email: user.email,
-      source: "referral",
-      status: "completed",
-      createdAt: { $gte: oneDayAgo },
-    });
+//     const dailyTransactions = await Transaction.find({
+//       email: user.email,
+//       source: "referral",
+//       status: "completed",
+//       createdAt: { $gte: oneDayAgo },
+//     });
 
-    const weeklyTransactions = await Transaction.find({
-      email: user.email,
-      source: "referral",
-      status: "completed",
-      createdAt: { $gte: oneWeekAgo },
-    });
+//     const weeklyTransactions = await Transaction.find({
+//       email: user.email,
+//       source: "referral",
+//       status: "completed",
+//       createdAt: { $gte: oneWeekAgo },
+//     });
 
-    const monthlyTransactions = await Transaction.find({
-      email: user.email,
-      source: "referral",
-      status: "completed",
-      createdAt: { $gte: oneMonthAgo },
-    });
+//     const monthlyTransactions = await Transaction.find({
+//       email: user.email,
+//       source: "referral",
+//       status: "completed",
+//       createdAt: { $gte: oneMonthAgo },
+//     });
 
-    // Count team members by level
-    const membersByLevel = {
-      level1: 0,
-      level2: 0,
-      level3: 0,
-      level4: 0,
-    };
+//     const membersByLevel = {
+//       level1: 0,
+//       level2: 0,
+//       level3: 0,
+//       level4: 0,
+//     };
 
-    for (const member of teamMembers) {
-      const level = `level${member.level}`;
-      if (membersByLevel[level] !== undefined) {
-        membersByLevel[level]++;
-      }
-    }
+//     for (const member of teamMembers) {
+//       const level = `level${member.level}`;
+//       if (membersByLevel[level] !== undefined) {
+//         membersByLevel[level]++;
+//       }
+//     }
 
-    // Calculate earnings by referral level
-    const earningsByLevel = {
-      level1: 0,
-      level2: 0,
-      level3: 0,
-      level4: 0,
-    };
+//     const earningsByLevel = {
+//       level1: 0,
+//       level2: 0,
+//       level3: 0,
+//       level4: 0,
+//     };
 
-    for (const reward of allRewards) {
-      const level = `level${reward.referralLevel}`;
-      if (earningsByLevel[level] !== undefined) {
-        earningsByLevel[level] += reward.amount;
-      }
-    }
+//     for (const reward of allRewards) {
+//       const level = `level${reward.referralLevel}`;
+//       if (earningsByLevel[level] !== undefined) {
+//         earningsByLevel[level] += reward.amount;
+//       }
+//     }
 
-    // Calculate totals
-    const totalEarnings = allTransactions.reduce(
-      (sum, tx) => sum + tx.amount,
-      0
-    );
-    const dailyEarnings = dailyTransactions.reduce(
-      (sum, tx) => sum + tx.amount,
-      0
-    );
-    const weeklyEarnings = weeklyTransactions.reduce(
-      (sum, tx) => sum + tx.amount,
-      0
-    );
-    const monthlyEarnings = monthlyTransactions.reduce(
-      (sum, tx) => sum + tx.amount,
-      0
-    );
+//     const totalEarnings = allTransactions.reduce(
+//       (sum, tx) => sum + tx.amount,
+//       0
+//     );
+//     const dailyEarnings = dailyTransactions.reduce(
+//       (sum, tx) => sum + tx.amount,
+//       0
+//     );
+//     const weeklyEarnings = weeklyTransactions.reduce(
+//       (sum, tx) => sum + tx.amount,
+//       0
+//     );
+//     const monthlyEarnings = monthlyTransactions.reduce(
+//       (sum, tx) => sum + tx.amount,
+//       0
+//     );
 
-    // Get recent rewards (last 5)
-    const recentRewards = await AffiliateReward.find({
-      user: user._id,
-    })
-      .populate("referralUser", "name email level")
-      .sort({ createdAt: -1 })
-      .limit(5);
+//     // Get recent rewards (last 5)
+//     const recentRewards = await AffiliateReward.find({
+//       user: user._id,
+//     })
+//       .populate("referralUser", "name email level")
+//       .sort({ createdAt: -1 })
+//       .limit(5);
 
-    res.json({
-      success: true,
-      earnings: {
-        total: totalEarnings,
-        daily: dailyEarnings,
-        weekly: weeklyEarnings,
-        monthly: monthlyEarnings,
-        byLevel: earningsByLevel,
-      },
-      membersByLevel,
-      recentRewards,
-      totalRewardsCount: allRewards.length,
-    });
-  } catch (error) {
-    console.error("Error getting team earnings:", error);
-    res.status(500).json({ error: "Failed to get team earnings" });
-  }
-};
+//     res.json({
+//       success: true,
+//       earnings: {
+//         total: totalEarnings,
+//         daily: dailyEarnings,
+//         weekly: weeklyEarnings,
+//         monthly: monthlyEarnings,
+//         byLevel: earningsByLevel,
+//       },
+//       membersByLevel,
+//       recentRewards,
+//       totalRewardsCount: allRewards.length,
+//     });
+//   } catch (error) {
+//     console.error("Error getting team earnings:", error);
+//     res.status(500).json({ error: "Failed to get team earnings" });
+//   }
+// };

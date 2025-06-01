@@ -15,7 +15,5 @@ router.get("/team/members", authCheck, getTeamMembers);
 router.get("/team/affiliate-code", authCheck, getAffiliateCode);
 router.post("/team/register-affiliate", registerWithAffiliateCode);
 router.post("/team/credit-bonus", authCheck, creditReferralBonus);
-// New route for team earnings
-router.get("/earnings", authCheck, getTeamEarnings);
 
 module.exports = router;
