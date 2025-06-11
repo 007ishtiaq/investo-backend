@@ -63,7 +63,7 @@ const scheduleAffiliateRewards = () => {
     // Set interval for subsequent runs
     setInterval(() => {
       runAffiliateRewards();
-    }, 10000); // Run every 4 seconds
+    }, 1200000); // Run every 4 seconds
   } else {
     // Normal mode - run at midnight
     const scheduleNextRun = () => {

@@ -147,14 +147,53 @@ exports.getTransactionHistory = async (req, res) => {
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+    const filter = req.query.filter || "all";
+    const search = req.query.search || "";
     const skip = (page - 1) * limit;
 
-    const transactions = await Transaction.find({ email })
+    // Build the query object
+    let query = { email };
+
+    // Apply filters
+    if (filter !== "all") {
+      switch (filter) {
+        case "deposit":
+          query.source = "deposit";
+          break;
+        case "withdraw":
+          query.type = "debit";
+          break;
+        case "earning":
+          query.source = { $in: ["task_reward", "referral", "bonus"] };
+          break;
+        case "pending":
+          query.status = "pending";
+          break;
+        case "rejected":
+          query.status = { $in: ["failed", "rejected"] };
+          break;
+        case "rejected_deposit":
+          query.source = "deposit";
+          query.status = { $in: ["failed", "rejected"] };
+          break;
+        case "rejected_withdraw":
+          query.source = "withdrawal";
+          query.status = { $in: ["failed", "rejected"] };
+          break;
+      }
+    }
+
+    // Apply search filter
+    if (search) {
+      query.description = { $regex: search, $options: "i" };
+    }
+
+    const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await Transaction.countDocuments({ email });
+    const total = await Transaction.countDocuments(query);
 
     res.status(200).json({
       transactions,
