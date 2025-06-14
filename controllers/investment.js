@@ -4,24 +4,6 @@ const Wallet = require("../models/wallet");
 const Transaction = require("../models/transaction");
 const InvestmentPlan = require("../models/investmentPlan");
 
-// Get user's investments
-exports.getUserInvestments = async (req, res) => {
-  try {
-    const investments = await Investment.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .populate(
-        "plan",
-        "name returnRate durationInDays dailyIncome isFixedDeposit"
-      )
-      .exec();
-
-    res.json(investments);
-  } catch (error) {
-    console.error("Get user investments error:", error);
-    res.status(500).json({ error: "Failed to fetch investments" });
-  }
-};
-
 // For admin: Get all investments
 exports.getAllInvestments = async (req, res) => {
   try {

@@ -4,6 +4,7 @@ const Transaction = require("../models/transaction");
 const Wallet = require("../models/wallet");
 const InvestmentPlan = require("../models/investmentPlan");
 const AffiliateReward = require("../models/AffiliateReward");
+const Investment = require("../models/investment");
 
 // Get all users for admin with wallet balances
 exports.getUsers = async (req, res) => {
@@ -150,12 +151,47 @@ exports.updateUserLevel = async (req, res) => {
   }
 };
 
-// Upgrade user's plan directly (changes user level based on plan)
+// Get user investments
+exports.getUserInvestments = async (req, res) => {
+  try {
+    const founduser = await User.findOne({ email: req.user.email }).exec();
+    const userId = founduser._id;
+
+    const investments = await Investment.find({ user: userId })
+      .populate("plan", "name minLevel dailyIncome")
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      investments: investments,
+    });
+  } catch (error) {
+    console.error("Error fetching user investments:", error);
+    res.status(500).json({ error: "Failed to fetch investments" });
+  }
+};
+
+// Updated upgradePlan function - doesn't change user level for lower level plans
 exports.upgradePlan = async (req, res) => {
   try {
     const founduser = await User.findOne({ email: req.user.email }).exec();
-    const { planId } = req.body;
+    const { planId, investmentAmount } = req.body;
     const userId = founduser._id;
+
+    // Validate input
+    if (!planId || !investmentAmount) {
+      return res.status(400).json({
+        error: "Plan ID and investment amount are required",
+      });
+    }
+
+    const numInvestmentAmount = parseFloat(investmentAmount);
+    if (isNaN(numInvestmentAmount) || numInvestmentAmount <= 0) {
+      return res.status(400).json({
+        error: "Invalid investment amount",
+      });
+    }
 
     // Find the user
     const user = await User.findById(userId);
@@ -169,60 +205,90 @@ exports.upgradePlan = async (req, res) => {
       return res.status(404).json({ error: "Plan not found" });
     }
 
-    // Check if the plan's level is higher than the user's current level
-    if (plan.minLevel <= user.level) {
+    // Validate investment amount against plan limits
+    if (numInvestmentAmount < plan.minAmount) {
       return res.status(400).json({
-        error:
-          "You cannot upgrade to a plan with a level lower or equal to your current level",
+        error: `Minimum investment for this plan is $${plan.minAmount}`,
       });
+    }
+
+    if (numInvestmentAmount > plan.maxAmount) {
+      return res.status(400).json({
+        error: `Maximum investment for this plan is $${plan.maxAmount}`,
+      });
+    }
+
+    // Find user's wallet
+    const wallet = await Wallet.findOne({ email: user.email });
+    if (!wallet) {
+      return res.status(404).json({ error: "Wallet not found" });
     }
 
     // Check if user has enough wallet balance
-    if (user.balance < plan.minAmount) {
+    if (wallet.balance < numInvestmentAmount) {
       return res.status(400).json({
-        error: "Insufficient wallet balance for this upgrade",
+        error: "Insufficient wallet balance for this investment",
       });
     }
 
-    // Deduct amount from user's balance
-    user.balance -= plan.minAmount;
+    // Calculate end date based on plan duration
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + plan.durationInDays);
 
-    // Update user's level to the plan's level
-    user.level = plan.minLevel;
-
-    // Save the changes
-    await user.save();
-
-    // Record transaction (if you have a transaction model)
-    // This is optional but recommended for financial tracking
-    /* 
-    const transaction = new Transaction({
+    // Create investment record
+    const investment = new Investment({
       user: userId,
-      type: 'plan_upgrade',
-      amount: plan.minAmount,
-      description: `Upgraded to ${plan.name}`,
-      status: 'completed'
+      plan: planId,
+      amount: numInvestmentAmount,
+      initialAmount: numInvestmentAmount,
+      profit: 0,
+      status: "active",
+      startDate: startDate,
+      endDate: endDate,
     });
-    await transaction.save();
-    */
+
+    // Save investment
+    await investment.save();
+
+    // Deduct amount from user's wallet balance
+    wallet.balance -= numInvestmentAmount;
+    wallet.lastUpdated = new Date();
+    await wallet.save();
+
+    // Only update user's level if this plan's level is higher than current level
+    // For lower level plans, just record the investment without changing user level
+    if (plan.minLevel > user.level) {
+      user.level = plan.minLevel;
+      await user.save();
+    }
+
+    // Populate the investment with plan and user details for response
+    const populatedInvestment = await Investment.findById(investment._id)
+      .populate("plan", "name minLevel dailyIncome")
+      .populate("user", "name email");
 
     // Return success response
     res.json({
       success: true,
-      message: `Successfully upgraded to ${plan.name}`,
+      message: `Successfully invested $${numInvestmentAmount} in ${plan.name}`,
+      investment: populatedInvestment,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         level: user.level,
-        balance: user.balance,
+      },
+      wallet: {
+        balance: wallet.balance,
+        currency: wallet.currency,
       },
     });
   } catch (error) {
-    console.error("Plan upgrade error:", error);
+    console.error("Investment error:", error);
     res
       .status(500)
-      .json({ error: "An error occurred while processing your plan upgrade" });
+      .json({ error: "An error occurred while processing your investment" });
   }
 };
 
@@ -230,9 +296,10 @@ exports.upgradePlan = async (req, res) => {
 exports.getUserLevel = async (req, res) => {
   try {
     const user = await User.findOne({ email: req.user.email }).select("level");
+    console.log(user);
 
     res.json({
-      level: user.level || 1,
+      level: user.level,
     });
   } catch (error) {
     console.error("Get user level error:", error);

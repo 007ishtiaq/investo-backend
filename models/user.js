@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema(
     // New fields for affiliate system
     level: {
       type: Number,
-      default: 1,
+      default: 0,
     },
     affiliateCode: {
       type: String,

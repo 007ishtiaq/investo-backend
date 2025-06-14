@@ -15,11 +15,13 @@ const {
   getTotalEarnings,
   upgradePlan,
   getAffiliateRewards,
+  getUserInvestments,
 } = require("../controllers/user");
 
 // User management
 router.get("/admin/users", authCheck, adminCheck, getUsers);
 router.get("/user/level", authCheck, getUserLevel);
+router.get("/user/investments", authCheck, getUserInvestments);
 router.put("/admin/user/:userId/level", authCheck, adminCheck, updateUserLevel);
 router.get("/current-user", authCheck, getCurrentUser);
 router.put("/user/profile", authCheck, updateProfile);

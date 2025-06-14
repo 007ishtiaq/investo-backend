@@ -1,3 +1,5 @@
+// node .\seedPlans.js
+
 // server/seedPlans.js
 const InvestmentPlan = require("../models/investmentPlan");
 const mongoose = require("mongoose");
@@ -12,8 +14,8 @@ const samplePlans = [
   {
     name: "Basic Plan",
     description: "Entry-level plan with daily profit distribution",
-    minAmount: 0,
-    maxAmount: 0,
+    minAmount: 2,
+    maxAmount: 9,
     durationInDays: 1,
     returnRate: 0.5,
     dailyIncome: 0.5,

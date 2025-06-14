@@ -4,8 +4,6 @@ const InvestmentPlan = require("../models/investmentPlan");
 // Get all active investment plans
 exports.getAllPlans = async (req, res) => {
   try {
-    console.log("hitting route getAllPlans");
-
     const plans = await InvestmentPlan.find({ active: true })
       .sort({ minLevel: 1, minAmount: 1 })
       .exec();
