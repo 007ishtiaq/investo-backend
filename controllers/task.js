@@ -8,6 +8,7 @@ const cloudinary = require("cloudinary").v2;
 const Wallet = require("../models/wallet"); // Import Wallet model
 const moment = require("moment");
 const timeService = require("../cron/timeService");
+const Investment = require("../models/investment");
 
 // Create a new task (admin only)
 exports.createTask = async (req, res) => {
@@ -30,18 +31,61 @@ exports.getAllTasks = async (req, res) => {
     const user = req.user
       ? await User.findOne({ email: req.user.email })
       : null;
-    const userLevel = user ? user.level || 1 : 1; // Default to level 1 if not found
+
     // Get today's date from internet time
     const today = timeService.getStartOfToday();
     const tomorrow = timeService.getStartOfTomorrow();
 
-    // console.log("Internet-based today:", today);
-    // console.log("Internet-based tomorrow:", tomorrow);
-    // Query with date range using internet time
+    let accessibleLevels = [1]; // Level 1 is always accessible (free)
+
+    // If user is authenticated, check their purchased investment plans
+    if (user) {
+      try {
+        // Get user's investments to determine accessible levels
+        // Note: Using 'user' field instead of 'userId' based on your schema
+        const userInvestments = await Investment.find({
+          user: user._id, // Changed from 'userId' to 'user'
+          status: "active", // Only consider active investments
+        }).populate("plan");
+
+        console.log("Found investments:", userInvestments.length);
+
+        // Log the populated plan data to debug
+        userInvestments.forEach((investment, index) => {
+          console.log(`Investment ${index}:`, {
+            planId: investment.plan?._id,
+            minLevel: investment.plan?.minLevel,
+            planName: investment.plan?.name,
+          });
+        });
+
+        // Extract accessible levels from purchased plans
+        const purchasedLevels = userInvestments
+          .filter((investment) => investment.plan && investment.plan.minLevel)
+          .map((investment) => investment.plan.minLevel);
+
+        // Combine free level (1) with purchased levels
+        accessibleLevels = [...new Set([1, ...purchasedLevels])]; // Remove duplicates
+
+        console.log("Purchased levels:", purchasedLevels);
+        console.log("User accessible levels:", accessibleLevels);
+      } catch (error) {
+        console.error("Error fetching user investments:", error);
+        // If error fetching investments, default to level 1 only
+        accessibleLevels = [1];
+      }
+    } else {
+      // Non-authenticated users only get level 1 tasks
+      accessibleLevels = [1];
+    }
+
+    console.log("Final accessible levels for query:", accessibleLevels);
+
+    // Query tasks based on accessible levels and date range
     const tasks = await Task.find({
       $and: [
         { active: true },
-        { minLevel: { $lte: userLevel } },
+        { minLevel: { $in: accessibleLevels } }, // Only tasks from accessible levels
         {
           $or: [
             {
@@ -55,10 +99,18 @@ exports.getAllTasks = async (req, res) => {
         },
       ],
     });
+
+    console.log("Found tasks:", tasks.length);
+    console.log(
+      "Task levels found:",
+      tasks.map((task) => ({ title: task.title, minLevel: task.minLevel }))
+    );
+
     // If the user is authenticated, include task completion status
     if (user) {
       // Get user's task completion status
       const userTasks = await UserTask.find({ userId: user._id });
+
       // Add completion status to each task
       const tasksWithStatus = tasks.map((task) => {
         const userTask = userTasks.find(
@@ -76,6 +128,7 @@ exports.getAllTasks = async (req, res) => {
         }
         return task.toObject();
       });
+
       res.json(tasksWithStatus);
     } else {
       res.json(tasks);
