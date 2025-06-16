@@ -65,7 +65,7 @@ exports.getUserWallet = async (req, res) => {
     // Prepare response with wallet and level
     const response = {
       ...wallet.toObject(),
-      level: user ? user.level || 1 : 1, // Default to level 1 if not found
+      level: user ? user.level || 0 : 0, // Default to level 1 if not found
     };
 
     res.status(200).json(response);
