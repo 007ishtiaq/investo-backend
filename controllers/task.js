@@ -36,15 +36,14 @@ exports.getAllTasks = async (req, res) => {
     const today = timeService.getStartOfToday();
     const tomorrow = timeService.getStartOfTomorrow();
 
-    let accessibleLevels = [1]; // Level 1 is always accessible (free)
+    let accessibleLevels = []; // No levels are free anymore
 
     // If user is authenticated, check their purchased investment plans
     if (user) {
       try {
         // Get user's investments to determine accessible levels
-        // Note: Using 'user' field instead of 'userId' based on your schema
         const userInvestments = await Investment.find({
-          user: user._id, // Changed from 'userId' to 'user'
+          user: user._id,
           status: "active", // Only consider active investments
         }).populate("plan");
 
@@ -59,46 +58,49 @@ exports.getAllTasks = async (req, res) => {
           });
         });
 
-        // Extract accessible levels from purchased plans
+        // Extract accessible levels from purchased plans ONLY
         const purchasedLevels = userInvestments
           .filter((investment) => investment.plan && investment.plan.minLevel)
           .map((investment) => investment.plan.minLevel);
 
-        // Combine free level (1) with purchased levels
-        accessibleLevels = [...new Set([1, ...purchasedLevels])]; // Remove duplicates
+        // Only purchased levels are accessible (no free levels)
+        accessibleLevels = [...new Set(purchasedLevels)]; // Remove duplicates
 
         console.log("Purchased levels:", purchasedLevels);
         console.log("User accessible levels:", accessibleLevels);
       } catch (error) {
         console.error("Error fetching user investments:", error);
-        // If error fetching investments, default to level 1 only
-        accessibleLevels = [1];
+        // If error fetching investments, no levels are accessible
+        accessibleLevels = [];
       }
     } else {
-      // Non-authenticated users only get level 1 tasks
-      accessibleLevels = [1];
+      // Non-authenticated users get no tasks
+      accessibleLevels = [];
     }
 
     console.log("Final accessible levels for query:", accessibleLevels);
 
-    // Query tasks based on accessible levels and date range
-    const tasks = await Task.find({
-      $and: [
-        { active: true },
-        { minLevel: { $in: accessibleLevels } }, // Only tasks from accessible levels
-        {
-          $or: [
-            {
-              displayDate: {
-                $gte: today,
-                $lt: tomorrow,
+    // Only query tasks if user has accessible levels
+    let tasks = [];
+    if (accessibleLevels.length > 0) {
+      tasks = await Task.find({
+        $and: [
+          { active: true },
+          { minLevel: { $in: accessibleLevels } }, // Only tasks from accessible levels
+          {
+            $or: [
+              {
+                displayDate: {
+                  $gte: today,
+                  $lt: tomorrow,
+                },
               },
-            },
-            { displayDate: null },
-          ],
-        },
-      ],
-    });
+              { displayDate: null },
+            ],
+          },
+        ],
+      });
+    }
 
     console.log("Found tasks:", tasks.length);
     console.log(
@@ -107,7 +109,7 @@ exports.getAllTasks = async (req, res) => {
     );
 
     // If the user is authenticated, include task completion status
-    if (user) {
+    if (user && tasks.length > 0) {
       // Get user's task completion status
       const userTasks = await UserTask.find({ userId: user._id });
 
@@ -131,7 +133,7 @@ exports.getAllTasks = async (req, res) => {
 
       res.json(tasksWithStatus);
     } else {
-      res.json(tasks);
+      res.json(tasks); // Will be empty array if no accessible levels
     }
   } catch (error) {
     console.error("Error getting tasks:", error);
