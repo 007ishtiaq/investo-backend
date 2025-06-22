@@ -24,20 +24,18 @@ exports.createTask = async (req, res) => {
   }
 };
 
-// Get all tasks for a user considering rotations
 exports.getAllTasks = async (req, res) => {
   try {
+    // First, delete old user task completions before everything else
+    await deleteOldUserTaskCompletions();
     // Get user from the request (assuming it's added by auth middleware)
     const user = req.user
       ? await User.findOne({ email: req.user.email })
       : null;
-
     // Get today's date from internet time
     const today = timeService.getStartOfToday();
     const tomorrow = timeService.getStartOfTomorrow();
-
     let accessibleLevels = []; // No levels are free anymore
-
     // If user is authenticated, check their purchased investment plans
     if (user) {
       try {
@@ -46,27 +44,22 @@ exports.getAllTasks = async (req, res) => {
           user: user._id,
           status: "active", // Only consider active investments
         }).populate("plan");
-
-        console.log("Found investments:", userInvestments.length);
-
+        // console.log("Found investments:", userInvestments.length);
         // Log the populated plan data to debug
         userInvestments.forEach((investment, index) => {
-          console.log(`Investment ${index}:`, {
-            planId: investment.plan?._id,
-            minLevel: investment.plan?.minLevel,
-            planName: investment.plan?.name,
-          });
+          // console.log(`Investment ${index}:`, {
+          //   planId: investment.plan?._id,
+          //   minLevel: investment.plan?.minLevel,
+          //   planName: investment.plan?.name,
+          // });
         });
-
         // Extract accessible levels from purchased plans ONLY
         const purchasedLevels = userInvestments
           .filter((investment) => investment.plan && investment.plan.minLevel)
           .map((investment) => investment.plan.minLevel);
-
         // Only purchased levels are accessible (no free levels)
         accessibleLevels = [...new Set(purchasedLevels)]; // Remove duplicates
-
-        console.log("Purchased levels:", purchasedLevels);
+        // console.log("Purchased levels:", purchasedLevels);
         console.log("User accessible levels:", accessibleLevels);
       } catch (error) {
         console.error("Error fetching user investments:", error);
@@ -77,9 +70,7 @@ exports.getAllTasks = async (req, res) => {
       // Non-authenticated users get no tasks
       accessibleLevels = [];
     }
-
     console.log("Final accessible levels for query:", accessibleLevels);
-
     // Only query tasks if user has accessible levels
     let tasks = [];
     if (accessibleLevels.length > 0) {
@@ -101,18 +92,15 @@ exports.getAllTasks = async (req, res) => {
         ],
       });
     }
-
     console.log("Found tasks:", tasks.length);
     console.log(
       "Task levels found:",
       tasks.map((task) => ({ title: task.title, minLevel: task.minLevel }))
     );
-
     // If the user is authenticated, include task completion status
     if (user && tasks.length > 0) {
-      // Get user's task completion status
+      // Get user's task completion status (only today's tasks will remain after cleanup)
       const userTasks = await UserTask.find({ userId: user._id });
-
       // Add completion status to each task
       const tasksWithStatus = tasks.map((task) => {
         const userTask = userTasks.find(
@@ -130,7 +118,6 @@ exports.getAllTasks = async (req, res) => {
         }
         return task.toObject();
       });
-
       res.json(tasksWithStatus);
     } else {
       res.json(tasks); // Will be empty array if no accessible levels
@@ -141,6 +128,35 @@ exports.getAllTasks = async (req, res) => {
       message: "Failed to get tasks",
       error: error.message,
     });
+  }
+};
+// Helper function to delete old user task completions (using same logic as scheduler)
+const deleteOldUserTaskCompletions = async () => {
+  try {
+    // Get start of today (midnight of current day) - same logic as scheduler
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    console.log("Cleaning old task completions before:", today);
+    // Find user tasks that were completed before today
+    const oldUserTasks = await UserTask.find({
+      completedAt: { $exists: true, $lt: today },
+    });
+    console.log(
+      `Found ${oldUserTasks.length} old completed user tasks to delete`
+    );
+    if (oldUserTasks.length > 0) {
+      // Delete user tasks that were completed before today
+      const deleteResult = await UserTask.deleteMany({
+        completedAt: { $exists: true, $lt: today },
+      });
+      console.log(
+        `Successfully deleted ${deleteResult.deletedCount} old completed user tasks`
+      );
+    } else {
+      console.log("No old completed user tasks found to delete");
+    }
+  } catch (error) {
+    console.error("Error deleting old user task completions:", error);
   }
 };
 
