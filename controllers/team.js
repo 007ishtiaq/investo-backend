@@ -2,8 +2,10 @@
 const User = require("../models/user");
 const Wallet = require("../models/wallet");
 const mongoose = require("mongoose");
+const Investment = require("../models/investment");
+const Transaction = require("../models/transaction");
 
-// Get current user's team members
+// Get current user's team members with enhanced data
 exports.getTeamMembers = async (req, res) => {
   try {
     const userEmail = req.user.email;
@@ -16,10 +18,62 @@ exports.getTeamMembers = async (req, res) => {
       .select("name email level createdAt")
       .lean();
 
+    // Enhanced team members with additional data
+    const enhancedTeamMembers = await Promise.all(
+      teamMembers.map(async (member) => {
+        // Get first investment (oldest investment) with amount
+        const firstInvestment = await Investment.findOne({
+          user: member._id,
+        }).sort({ createdAt: 1 });
+
+        // Get commission earned from this specific member
+        const commissionTransaction = await Transaction.findOne({
+          email: userEmail,
+          source: "referral",
+          description: { $regex: new RegExp(member.email, "i") },
+        });
+
+        // If no direct match by email in description, find by pattern matching
+        let commissionAmount = 0;
+        if (commissionTransaction) {
+          commissionAmount = commissionTransaction.amount;
+        } else {
+          // Alternative: Get all referral transactions and try to match timing
+          const memberInvestments = await Investment.find({ user: member._id });
+          if (memberInvestments.length > 0) {
+            const firstInvestmentDate = memberInvestments[0].createdAt;
+            // Find commission transaction around the same time (within 1 minute)
+            const timeBuffer = new Date(firstInvestmentDate.getTime() + 60000); // 1 minute buffer
+            const timeBufferBefore = new Date(
+              firstInvestmentDate.getTime() - 60000
+            );
+
+            const relatedCommission = await Transaction.findOne({
+              email: userEmail,
+              source: "referral",
+              createdAt: { $gte: timeBufferBefore, $lte: timeBuffer },
+            });
+
+            if (relatedCommission) {
+              commissionAmount = relatedCommission.amount;
+            }
+          }
+        }
+
+        return {
+          ...member,
+          firstInvestmentAmount: firstInvestment
+            ? firstInvestment.amount
+            : null,
+          commissionEarned: commissionAmount,
+        };
+      })
+    );
+
     // Get statistics
     const totalTeamMembers = teamMembers.length;
     const totalActiveMembers = teamMembers.filter(
-      (member) => member.level > 1
+      (member) => member.level > 0
     ).length;
 
     // Get earnings from affiliate program
@@ -28,7 +82,7 @@ exports.getTeamMembers = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      teamMembers,
+      teamMembers: enhancedTeamMembers,
       stats: {
         totalMembers: totalTeamMembers,
         activeMembers: totalActiveMembers,

@@ -173,6 +173,126 @@ exports.getUserInvestments = async (req, res) => {
 };
 
 // Updated upgradePlan function - doesn't change user level for lower level plans
+// exports.upgradePlan = async (req, res) => {
+//   try {
+//     const founduser = await User.findOne({ email: req.user.email }).exec();
+//     const { planId, investmentAmount } = req.body;
+//     const userId = founduser._id;
+
+//     // Validate input
+//     if (!planId || !investmentAmount) {
+//       return res.status(400).json({
+//         error: "Plan ID and investment amount are required",
+//       });
+//     }
+
+//     const numInvestmentAmount = parseFloat(investmentAmount);
+//     if (isNaN(numInvestmentAmount) || numInvestmentAmount <= 0) {
+//       return res.status(400).json({
+//         error: "Invalid investment amount",
+//       });
+//     }
+
+//     // Find the user
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // Find the plan
+//     const plan = await InvestmentPlan.findById(planId);
+//     if (!plan) {
+//       return res.status(404).json({ error: "Plan not found" });
+//     }
+
+//     // Validate investment amount against plan limits
+//     if (numInvestmentAmount < plan.minAmount) {
+//       return res.status(400).json({
+//         error: `Minimum investment for this plan is $${plan.minAmount}`,
+//       });
+//     }
+
+//     if (numInvestmentAmount > plan.maxAmount) {
+//       return res.status(400).json({
+//         error: `Maximum investment for this plan is $${plan.maxAmount}`,
+//       });
+//     }
+
+//     // Find user's wallet
+//     const wallet = await Wallet.findOne({ email: user.email });
+//     if (!wallet) {
+//       return res.status(404).json({ error: "Wallet not found" });
+//     }
+
+//     // Check if user has enough wallet balance
+//     if (wallet.balance < numInvestmentAmount) {
+//       return res.status(400).json({
+//         error: "Insufficient wallet balance for this investment",
+//       });
+//     }
+
+//     // Calculate end date based on plan duration
+//     const startDate = new Date();
+//     const endDate = new Date(startDate);
+//     endDate.setDate(endDate.getDate() + plan.durationInDays);
+
+//     // Create investment record
+//     const investment = new Investment({
+//       user: userId,
+//       plan: planId,
+//       amount: numInvestmentAmount,
+//       initialAmount: numInvestmentAmount,
+//       profit: 0,
+//       status: "active",
+//       startDate: startDate,
+//       endDate: endDate,
+//     });
+
+//     // Save investment
+//     await investment.save();
+
+//     // Deduct amount from user's wallet balance
+//     wallet.balance -= numInvestmentAmount;
+//     wallet.lastUpdated = new Date();
+//     await wallet.save();
+
+//     // Only update user's level if this plan's level is higher than current level
+//     // For lower level plans, just record the investment without changing user level
+//     if (plan.minLevel > user.level) {
+//       user.level = plan.minLevel;
+//       await user.save();
+//     }
+
+//     // Populate the investment with plan and user details for response
+//     const populatedInvestment = await Investment.findById(investment._id)
+//       .populate("plan", "name minLevel dailyIncome")
+//       .populate("user", "name email");
+
+//     // Return success response
+//     res.json({
+//       success: true,
+//       message: `Successfully invested $${numInvestmentAmount} in ${plan.name}`,
+//       investment: populatedInvestment,
+//       user: {
+//         _id: user._id,
+//         name: user.name,
+//         email: user.email,
+//         level: user.level,
+//       },
+//       wallet: {
+//         balance: wallet.balance,
+//         currency: wallet.currency,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Investment error:", error);
+//     res
+//       .status(500)
+//       .json({ error: "An error occurred while processing your investment" });
+//   }
+// };
+
+// Updated upgradePlan function with affiliate rewards
 exports.upgradePlan = async (req, res) => {
   try {
     const founduser = await User.findOne({ email: req.user.email }).exec();
@@ -231,6 +351,10 @@ exports.upgradePlan = async (req, res) => {
       });
     }
 
+    // Check if this is user's first plan purchase
+    const existingInvestments = await Investment.find({ user: userId });
+    const isFirstPurchase = existingInvestments.length === 0;
+
     // Calculate end date based on plan duration
     const startDate = new Date();
     const endDate = new Date(startDate);
@@ -257,10 +381,18 @@ exports.upgradePlan = async (req, res) => {
     await wallet.save();
 
     // Only update user's level if this plan's level is higher than current level
-    // For lower level plans, just record the investment without changing user level
     if (plan.minLevel > user.level) {
       user.level = plan.minLevel;
       await user.save();
+    }
+
+    // Process affiliate rewards if this is first purchase and user has a referrer
+    if (isFirstPurchase && user.referrer) {
+      await processAffiliateRewards(
+        user.referrer,
+        plan.minLevel,
+        numInvestmentAmount
+      );
     }
 
     // Populate the investment with plan and user details for response
@@ -289,6 +421,82 @@ exports.upgradePlan = async (req, res) => {
     res
       .status(500)
       .json({ error: "An error occurred while processing your investment" });
+  }
+};
+
+// Helper function to process affiliate rewards
+const processAffiliateRewards = async (
+  referrerId,
+  purchasedPlanLevel,
+  investmentAmount
+) => {
+  try {
+    // Find the referrer
+    const referrer = await User.findById(referrerId);
+    if (!referrer) {
+      console.log("Referrer not found");
+      return;
+    }
+
+    // Commission rates based on your table
+    const getCommissionRate = (referrerLevel, planLevel) => {
+      const rates = {
+        1: { 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.25 }, // Level 1 account rates
+        2: { 1: 0.15, 2: 0.2, 3: 0.25, 4: 0.3 }, // Level 2 account rates
+        3: { 1: 0.2, 2: 0.25, 3: 0.3, 4: 0.35 }, // Level 3 account rates
+        4: { 1: 0.25, 2: 0.3, 3: 0.35, 4: 0.4 }, // Level 4 account rates
+      };
+
+      return rates[referrerLevel]?.[planLevel] || 0;
+    };
+
+    // Calculate commission based on referrer's level and purchased plan level
+    const commissionRate = getCommissionRate(
+      referrer.level,
+      purchasedPlanLevel
+    );
+    const commissionAmount = investmentAmount * commissionRate;
+
+    if (commissionAmount > 0) {
+      // Find referrer's wallet
+      const referrerWallet = await Wallet.findOne({ email: referrer.email });
+      if (!referrerWallet) {
+        console.log("Referrer wallet not found");
+        return;
+      }
+
+      // Update referrer's affiliate earnings and wallet balance
+      referrer.affiliateEarnings += commissionAmount;
+      await referrer.save();
+
+      referrerWallet.balance += commissionAmount;
+      referrerWallet.lastUpdated = new Date();
+      await referrerWallet.save();
+
+      // Create transaction record for the affiliate reward
+      const transaction = new Transaction({
+        email: referrer.email,
+        walletId: referrerWallet._id,
+        amount: commissionAmount,
+        type: "credit",
+        status: "completed",
+        source: "referral",
+        description: `Affiliate commission from Level ${purchasedPlanLevel} plan purchase ($${investmentAmount.toFixed(
+          2
+        )}) - ${(commissionRate * 100).toFixed(0)}% commission`,
+        reference: `AF-${Date.now()}`,
+      });
+
+      await transaction.save();
+
+      console.log(
+        `Affiliate reward processed: $${commissionAmount.toFixed(2)} to ${
+          referrer.email
+        } for Level ${purchasedPlanLevel} plan purchase`
+      );
+    }
+  } catch (error) {
+    console.error("Error processing affiliate rewards:", error);
   }
 };
 
