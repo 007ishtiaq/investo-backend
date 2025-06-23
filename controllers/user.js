@@ -380,6 +380,26 @@ exports.upgradePlan = async (req, res) => {
     wallet.lastUpdated = new Date();
     await wallet.save();
 
+    // Create transaction record for plan purchase (debit transaction)
+    const transaction = new Transaction({
+      email: user.email,
+      walletId: wallet._id,
+      amount: numInvestmentAmount,
+      type: "debit",
+      status: "completed",
+      source: "other",
+      description: `Plan purchase - ${plan.name} (Level ${plan.minLevel})`,
+      reference: investment._id.toString(),
+      metadata: {
+        planId: planId,
+        planName: plan.name,
+        planLevel: plan.minLevel,
+        investmentId: investment._id,
+      },
+    });
+
+    await transaction.save();
+
     // Only update user's level if this plan's level is higher than current level
     if (plan.minLevel > user.level) {
       user.level = plan.minLevel;
