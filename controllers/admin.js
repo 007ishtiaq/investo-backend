@@ -735,7 +735,6 @@ exports.createManualDeposit = async (req, res) => {
 
     // Validate input
     if (!userId) return res.status(400).json({ error: "User ID is required" });
-    if (!planId) return res.status(400).json({ error: "Plan ID is required" });
     if (!amount || amount <= 0)
       return res.status(400).json({ error: "Valid amount is required" });
 
@@ -743,10 +742,13 @@ exports.createManualDeposit = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    // Find plan
-    const plan = await InvestmentPlan.findById(planId);
-    if (!plan)
-      return res.status(404).json({ error: "Investment plan not found" });
+    // Find plan only if planId is provided
+    let plan = null;
+    if (planId) {
+      plan = await InvestmentPlan.findById(planId);
+      if (!plan)
+        return res.status(404).json({ error: "Investment plan not found" });
+    }
 
     // Find or create wallet
     let wallet = await Wallet.findOne({ email: user.email });
@@ -771,7 +773,7 @@ exports.createManualDeposit = async (req, res) => {
       paymentMethod: "admin",
       adminNotes: adminNotes || "Manual deposit by admin",
       approvedBy: req.user._id,
-      assignedPlan: planId,
+      assignedPlan: planId || null, // Set to null if no planId provided
       approvedAt: new Date(),
       screenshotUrl: placeholderScreenshotUrl, // Add the required screenshotUrl field
     });
@@ -799,8 +801,8 @@ exports.createManualDeposit = async (req, res) => {
 
     await transaction.save();
 
-    // Update user level based on plan
-    if (plan.minLevel && plan.minLevel !== user.level) {
+    // Update user level based on plan ONLY if planId and plan exist
+    if (planId && plan && plan.minLevel && plan.minLevel !== user.level) {
       user.level = plan.minLevel;
       await user.save();
     }
