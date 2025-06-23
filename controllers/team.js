@@ -21,10 +21,12 @@ exports.getTeamMembers = async (req, res) => {
     // Enhanced team members with additional data
     const enhancedTeamMembers = await Promise.all(
       teamMembers.map(async (member) => {
-        // Get first investment (oldest investment) with amount
+        // Get first investment (oldest investment) with amount and plan details
         const firstInvestment = await Investment.findOne({
           user: member._id,
-        }).sort({ createdAt: 1 });
+        })
+          .sort({ createdAt: 1 })
+          .populate("plan", "minLevel"); // Populate plan to get the level
 
         // Get commission earned from this specific member
         const commissionTransaction = await Transaction.findOne({
@@ -60,8 +62,28 @@ exports.getTeamMembers = async (req, res) => {
           }
         }
 
+        // Privacy protection: mask name and email
+        const maskedName =
+          member.name.length > 5
+            ? member.name.substring(0, 5) + "*****"
+            : member.name + "*****";
+
+        const maskedEmail =
+          member.email.length > 5
+            ? member.email.substring(0, 5) + "*****"
+            : member.email + "*****";
+
+        // Get the first purchase level from the investment plan
+        const firstPurchaseLevel =
+          firstInvestment && firstInvestment.plan
+            ? firstInvestment.plan.minLevel
+            : 0;
+
         return {
           ...member,
+          name: maskedName,
+          email: maskedEmail,
+          level: firstPurchaseLevel, // Use first purchase level instead of current level
           firstInvestmentAmount: firstInvestment
             ? firstInvestment.amount
             : null,
@@ -70,9 +92,9 @@ exports.getTeamMembers = async (req, res) => {
       })
     );
 
-    // Get statistics
+    // Get statistics - update to use first purchase levels
     const totalTeamMembers = teamMembers.length;
-    const totalActiveMembers = teamMembers.filter(
+    const totalActiveMembers = enhancedTeamMembers.filter(
       (member) => member.level > 0
     ).length;
 
@@ -97,7 +119,6 @@ exports.getTeamMembers = async (req, res) => {
     });
   }
 };
-
 // Generate or get affiliate link
 exports.getAffiliateCode = async (req, res) => {
   try {
