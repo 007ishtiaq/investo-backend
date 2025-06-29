@@ -28,7 +28,8 @@ const userTaskSchema = new mongoose.Schema(
     completedAt: Date,
     reward: {
       type: Number,
-      required: true,
+      required: false, // Changed from true to false
+      default: 0, // Added default value
     },
     verificationData: {
       type: Object,

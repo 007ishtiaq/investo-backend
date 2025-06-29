@@ -26,10 +26,12 @@ const taskSchema = new mongoose.Schema(
       type: String,
       default: "5 mins",
     },
-    reward: {
+    rewardPercentage: {
       type: Number,
       required: true,
-      min: 0.001,
+      min: 0.1,
+      max: 100,
+      default: 0.5, // Default 0.5%
     },
     externalUrl: String,
     steps: [String],

@@ -21,11 +21,9 @@ const {
 } = require("../middlewares/utils");
 
 // Task verification and reward crediting
-// Task verification and reward crediting
 exports.approveTask = async (req, res) => {
   try {
-    // Change this line to match the route parameter name
-    const userTaskId = req.params.userTaskId; // Changed from req.params.id
+    const userTaskId = req.params.userTaskId;
 
     // Find the user task submission
     const userTask = await UserTask.findById(userTaskId);
@@ -35,7 +33,7 @@ exports.approveTask = async (req, res) => {
         .json({ success: false, message: "Task submission not found" });
     }
 
-    // Find the task to get reward amount
+    // Find the task for reference
     const task = await Task.findById(userTask.taskId);
     if (!task) {
       return res
@@ -43,13 +41,7 @@ exports.approveTask = async (req, res) => {
         .json({ success: false, message: "Task not found" });
     }
 
-    // Update user task status
-    userTask.status = "approved";
-    userTask.verified = true;
-    userTask.completed = true;
-    userTask.completedAt = new Date();
-
-    // Find the user email for wallet crediting - this is important
+    // Find the user email for wallet crediting
     const user = await User.findById(userTask.userId);
     if (!user) {
       return res
@@ -57,32 +49,66 @@ exports.approveTask = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    // Credit reward to wallet using email
+    // Use the dynamic reward from userTask, not task.reward
+    const rewardAmount = Number(userTask.reward || 0);
+
+    if (isNaN(rewardAmount) || rewardAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid reward amount: ${userTask.reward}. Please recalculate task reward.`,
+      });
+    }
+
+    // Update user task status BEFORE crediting wallet
+    userTask.status = "approved";
+    userTask.verified = true;
+    userTask.completed = true;
+    userTask.completedAt = new Date();
+
+    // Save the updated user task first
+    await userTask.save();
+
+    // Credit reward to wallet using the calculated dynamic reward
     try {
-      await creditRewardToWallet(
-        user.email, // Use user's email instead of userId
-        task.reward,
-        "task_reward", // Make sure this matches your Transaction schema enum
-        `Admin approved reward for "${task.title}"`
+      const walletResult = await creditRewardToWallet(
+        user.email,
+        rewardAmount,
+        "task_reward", // Ensure this matches your Transaction schema enum
+        `Admin approved reward for "${task.title}" - Level ${task.minLevel} task`
       );
-      console.log(`Reward of ${task.reward} credited to ${user.email}`);
+
+      console.log(
+        `Reward of $${rewardAmount.toFixed(3)} credited to ${user.email}`,
+        walletResult
+      );
+
+      res.status(200).json({
+        success: true,
+        message: `Task approved and $${rewardAmount.toFixed(
+          3
+        )} USD credited to user's wallet`,
+        data: {
+          rewardAmount: rewardAmount,
+          taskTitle: task.title,
+          userEmail: user.email,
+          walletResult: walletResult,
+        },
+      });
     } catch (walletError) {
       console.error("Error crediting wallet:", walletError);
+
+      // Rollback the task status since wallet credit failed
+      userTask.status = "pending_verification";
+      userTask.verified = false;
+      userTask.completed = false;
+      userTask.completedAt = null;
+      await userTask.save();
+
       return res.status(500).json({
         success: false,
         message: "Failed to credit reward: " + walletError.message,
       });
     }
-
-    // Save the updated user task
-    await userTask.save();
-
-    res.status(200).json({
-      success: true,
-      message: `Task approved and ${task.reward.toFixed(
-        3
-      )} USD credited to user's wallet`,
-    });
   } catch (err) {
     console.error("Error approving task:", err);
     res.status(500).json({
