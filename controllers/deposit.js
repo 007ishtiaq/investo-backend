@@ -192,34 +192,7 @@ exports.reviewDeposit = async (req, res) => {
     });
 
     // Handle approval flow
-    if (status === "approved" && planId) {
-      const plan = await InvestmentPlan.findById(planId);
-
-      if (!plan) {
-        return res.status(404).json({ error: "Investment plan not found" });
-      }
-
-      deposit.assignedPlan = planId;
-
-      // Create investment for user
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + plan.durationInDays);
-
-      const newInvestment = await new Investment({
-        user: deposit.user,
-        plan: planId,
-        amount: deposit.amount,
-        initialAmount: deposit.amount,
-        endDate,
-        deposit: depositId,
-      }).save();
-
-      // Set user level to exactly match the plan's minLevel
-      if (plan.minLevel && depositor.level !== plan.minLevel) {
-        depositor.level = plan.minLevel;
-        await depositor.save();
-      }
-
+    if (status === "approved") {
       // Find or create wallet for the depositor
       let wallet = await Wallet.findOne({ email: depositor.email });
 
@@ -236,61 +209,150 @@ exports.reviewDeposit = async (req, res) => {
       wallet.lastUpdated = new Date();
       await wallet.save();
 
-      // Update existing transaction if found, or create a new one if not
-      if (pendingTransaction) {
-        pendingTransaction.status = "completed";
-        pendingTransaction.description = `Deposit approved for investment in ${plan.name}`;
-        pendingTransaction.amount = deposit.amount; // Update amount in case it was changed
-        pendingTransaction.metadata = {
-          planId: plan._id,
-          planName: plan.name,
-        };
-        await pendingTransaction.save();
-      } else {
-        // If no pending transaction found, create a new one
-        await new Transaction({
-          email: depositor.email,
-          walletId: wallet._id,
+      // Check if planId is provided
+      if (planId) {
+        // Original flow with investment plan
+        const plan = await InvestmentPlan.findById(planId);
+
+        if (!plan) {
+          return res.status(404).json({ error: "Investment plan not found" });
+        }
+
+        deposit.assignedPlan = planId;
+
+        // Create investment for user
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + plan.durationInDays);
+
+        const newInvestment = await new Investment({
+          user: deposit.user,
+          plan: planId,
           amount: deposit.amount,
-          type: "credit",
-          status: "completed",
-          source: "deposit",
-          reference: deposit._id.toString(),
-          description: `Deposit approved for investment in ${plan.name}`,
-          metadata: {
+          initialAmount: deposit.amount,
+          endDate,
+          deposit: depositId,
+        }).save();
+
+        // Set user level to exactly match the plan's minLevel
+        if (plan.minLevel && depositor.level !== plan.minLevel) {
+          depositor.level = plan.minLevel;
+          await depositor.save();
+        }
+
+        // Update existing transaction if found, or create a new one if not
+        if (pendingTransaction) {
+          pendingTransaction.status = "completed";
+          pendingTransaction.description = `Deposit approved for investment in ${plan.name}`;
+          pendingTransaction.amount = deposit.amount; // Update amount in case it was changed
+          pendingTransaction.metadata = {
             planId: plan._id,
             planName: plan.name,
-          },
-        }).save();
-      }
-
-      // Send email notification for approved deposit if user has deposits notifications enabled
-      try {
-        // Check if user has deposit notifications enabled
-        const notificationsEnabled =
-          depositor.notifications && depositor.notifications.deposits !== false;
-
-        if (notificationsEnabled) {
-          // Import email template and transporter
-          const {
-            depositNotificationTemplate,
-          } = require("../middlewares/utils");
-
-          // Email content
-          const mailOptions = {
-            from: "Investo <ishtiaqahmad427427@gmail.com>",
-            to: depositor.email,
-            subject: "Deposit Approved - Investo",
-            html: depositNotificationTemplate(deposit, plan),
           };
-
-          // Send email using the transporter
-          await transporter.sendMail(mailOptions);
-          console.log("Deposit approval email sent to:", depositor.email);
+          await pendingTransaction.save();
+        } else {
+          // If no pending transaction found, create a new one
+          await new Transaction({
+            email: depositor.email,
+            walletId: wallet._id,
+            amount: deposit.amount,
+            type: "credit",
+            status: "completed",
+            source: "deposit",
+            reference: deposit._id.toString(),
+            description: `Deposit approved for investment in ${plan.name}`,
+            metadata: {
+              planId: plan._id,
+              planName: plan.name,
+            },
+          }).save();
         }
-      } catch (emailError) {
-        // Log the error but don't fail the entire process if email sending fails
-        console.error("Failed to send deposit notification email:", emailError);
+
+        // Send email notification for approved deposit with plan
+        try {
+          const notificationsEnabled =
+            depositor.notifications &&
+            depositor.notifications.deposits !== false;
+
+          if (notificationsEnabled) {
+            const {
+              depositNotificationTemplate,
+            } = require("../middlewares/utils");
+
+            const mailOptions = {
+              from: "Investo <ishtiaqahmad427427@gmail.com>",
+              to: depositor.email,
+              subject: "Deposit Approved - Investo",
+              html: depositNotificationTemplate(deposit, plan),
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log("Deposit approval email sent to:", depositor.email);
+          }
+        } catch (emailError) {
+          console.error(
+            "Failed to send deposit notification email:",
+            emailError
+          );
+        }
+      } else {
+        // No planId provided - approve deposit without investment plan
+        // Keep user level unchanged
+
+        // Update existing transaction if found, or create a new one if not
+        if (pendingTransaction) {
+          pendingTransaction.status = "completed";
+          pendingTransaction.description = `Deposit approved - Balance credit`;
+          pendingTransaction.amount = deposit.amount; // Update amount in case it was changed
+          pendingTransaction.metadata = {
+            type: "balance_credit",
+            note: "Deposit approved without investment plan",
+          };
+          await pendingTransaction.save();
+        } else {
+          // If no pending transaction found, create a new one
+          await new Transaction({
+            email: depositor.email,
+            walletId: wallet._id,
+            amount: deposit.amount,
+            type: "credit",
+            status: "completed",
+            source: "deposit",
+            reference: deposit._id.toString(),
+            description: `Deposit approved - Balance credit`,
+            metadata: {
+              type: "balance_credit",
+              note: "Deposit approved without investment plan",
+            },
+          }).save();
+        }
+
+        // Send email notification for approved deposit without plan
+        try {
+          const notificationsEnabled =
+            depositor.notifications &&
+            depositor.notifications.deposits !== false;
+
+          if (notificationsEnabled) {
+            const {
+              depositNotificationTemplate,
+            } = require("../middlewares/utils");
+
+            const mailOptions = {
+              from: "Investo <ishtiaqahmad427427@gmail.com>",
+              to: depositor.email,
+              subject: "Deposit Approved - Investo",
+              html: depositNotificationTemplate(deposit, null), // Pass null for plan
+            };
+
+            await transporter.sendMail(mailOptions);
+            console.log("Deposit approval email sent to:", depositor.email);
+          }
+        } catch (emailError) {
+          console.error(
+            "Failed to send deposit notification email:",
+            emailError
+          );
+        }
       }
     }
     // Handle rejection flow
@@ -336,17 +398,14 @@ exports.reviewDeposit = async (req, res) => {
         }).save();
       }
 
-      // Send email notification for rejected deposit if user has deposits notifications enabled
+      // Send email notification for rejected deposit
       try {
-        // Check if user has deposit notifications enabled
         const notificationsEnabled =
           depositor.notifications && depositor.notifications.deposits !== false;
 
         if (notificationsEnabled) {
-          // Import email template and transporter
           const { depositRejectionTemplate } = require("../middlewares/utils");
 
-          // Email content
           const mailOptions = {
             from: "Investo <ishtiaqahmad427427@gmail.com>",
             to: depositor.email,
@@ -354,12 +413,10 @@ exports.reviewDeposit = async (req, res) => {
             html: depositRejectionTemplate(deposit, adminNotes),
           };
 
-          // Send email using the transporter
           await transporter.sendMail(mailOptions);
           console.log("Deposit rejection email sent to:", depositor.email);
         }
       } catch (emailError) {
-        // Log the error but don't fail the entire process if email sending fails
         console.error("Failed to send deposit rejection email:", emailError);
       }
     }
