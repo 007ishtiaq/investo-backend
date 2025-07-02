@@ -231,9 +231,512 @@ exports.getWithdrawalById = async (req, res) => {
   }
 };
 
+// exports.getAdminAnalytics = async (req, res) => {
+//   try {
+//     // Get financial data
+//     const totalDepositAmount = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "deposit",
+//           status: "completed",
+//           type: "credit",
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+//     const totalWithdrawalAmount = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "withdrawal",
+//           status: "completed",
+//           type: "debit",
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+//     const totalRewardsAmount = await Transaction.aggregate([
+//       {
+//         $match: {
+//           $or: [
+//             { source: "task_reward" },
+//             { source: "referral" },
+//             { source: "bonus" },
+//           ],
+//           status: "completed",
+//           type: "credit",
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+//     // Get total platform balance
+//     const totalWalletBalance = await Wallet.aggregate([
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: "$balance" },
+//         },
+//       },
+//     ]);
+//     // Get user stats
+//     const totalUsers = await User.countDocuments({ role: "subscriber" });
+//     const activeInvestors = await Investment.countDocuments({
+//       status: "active",
+//     });
+//     const totalTeams = await User.countDocuments({
+//       referrer: { $exists: true, $ne: null },
+//     });
+
+//     // Average user balance
+//     const avgUserBalance = await Wallet.aggregate([
+//       {
+//         $group: {
+//           _id: null,
+//           avgBalance: { $avg: "$balance" },
+//         },
+//       },
+//     ]);
+
+//     // Get task stats
+//     const totalTasks = await Task.countDocuments();
+//     const completedTasks = await UserTask.countDocuments({
+//       status: "completed",
+//     });
+//     const pendingTasks = await UserTask.countDocuments({
+//       status: "pending_verification",
+//     });
+//     const rejectedTasks = await UserTask.countDocuments({ status: "rejected" });
+
+//     // Get pending deposits and withdrawals count
+//     const pendingDeposits = await Deposit.countDocuments({ status: "pending" });
+//     const pendingWithdrawals = await Withdrawal.countDocuments({
+//       status: "pending",
+//     });
+
+//     // Get new contact messages count
+//     const newContactMessages = await Contact.countDocuments({ status: "new" });
+
+//     // Get user levels distribution
+//     const userLevels = await User.aggregate([
+//       {
+//         $match: { role: "subscriber" },
+//       },
+//       {
+//         $group: {
+//           _id: "$level",
+//           count: { $sum: 1 },
+//         },
+//       },
+//       {
+//         $sort: { _id: 1 },
+//       },
+//     ]);
+
+//     // Format user levels
+//     const userLevelsObj = {
+//       level1: 0,
+//       level2: 0,
+//       level3: 0,
+//       level4: 0,
+//     };
+//     userLevels.forEach((level) => {
+//       userLevelsObj[`level${level._id}`] = level.count;
+//     });
+
+//     // Get top users by balance
+//     const topUsersByBalance = await Wallet.aggregate([
+//       {
+//         $sort: { balance: -1 },
+//       },
+//       {
+//         $limit: 5,
+//       },
+//       {
+//         $lookup: {
+//           from: "users",
+//           localField: "email",
+//           foreignField: "email",
+//           as: "user",
+//         },
+//       },
+//       {
+//         $unwind: "$user",
+//       },
+//       {
+//         $project: {
+//           email: 1,
+//           name: "$user.name",
+//           balance: 1,
+//           level: "$user.level",
+//         },
+//       },
+//     ]);
+
+//     // Get top users by referrals
+//     const topUsersByReferrals = await User.aggregate([
+//       {
+//         $match: {
+//           referrer: { $exists: true },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: "$referrer",
+//           count: { $sum: 1 },
+//         },
+//       },
+//       {
+//         $sort: { count: -1 },
+//       },
+//       {
+//         $limit: 5,
+//       },
+//       {
+//         $lookup: {
+//           from: "users",
+//           localField: "_id",
+//           foreignField: "_id",
+//           as: "referrer",
+//         },
+//       },
+//       {
+//         $unwind: "$referrer",
+//       },
+//       {
+//         $project: {
+//           email: "$referrer.email",
+//           name: "$referrer.name",
+//           referrals: "$count",
+//           earnings: "$referrer.affiliateEarnings",
+//         },
+//       },
+//     ]);
+
+//     // Get trend data for the past 30 days
+//     const thirtyDaysAgo = new Date();
+//     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+//     // Get month-over-month changes for financial metrics
+//     const lastMonth = new Date();
+//     lastMonth.setDate(lastMonth.getDate() - 60);
+//     const twoMonthsAgo = new Date();
+//     twoMonthsAgo.setDate(twoMonthsAgo.getDate() - 90);
+
+//     // Previous month deposits
+//     const prevMonthDeposits = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "deposit",
+//           status: "completed",
+//           type: "credit",
+//           createdAt: { $gte: lastMonth, $lt: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+
+//     // Previous month withdrawals
+//     const prevMonthWithdrawals = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "withdrawal",
+//           status: "completed",
+//           type: "debit",
+//           createdAt: { $gte: lastMonth, $lt: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+
+//     // Previous month rewards
+//     const prevMonthRewards = await Transaction.aggregate([
+//       {
+//         $match: {
+//           $or: [
+//             { source: "task_reward" },
+//             { source: "referral" },
+//             { source: "bonus" },
+//           ],
+//           status: "completed",
+//           type: "credit",
+//           createdAt: { $gte: lastMonth, $lt: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//     ]);
+
+//     // Generate date labels for the past 30 days
+//     const dateLabels = [];
+//     const daysData = [];
+//     for (let i = 30; i >= 0; i--) {
+//       const date = new Date();
+//       date.setDate(date.getDate() - i);
+
+//       // Format date as MM/DD
+//       const month = date.getMonth() + 1;
+//       const day = date.getDate();
+//       const formattedDate = `${month}/${day}`;
+
+//       dateLabels.push(formattedDate);
+//       daysData.push(date);
+//     }
+
+//     // Get daily deposits for the past 30 days
+//     const depositsByDay = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "deposit",
+//           status: "completed",
+//           type: "credit",
+//           createdAt: { $gte: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: {
+//             $dateToString: { format: "%m/%d", date: "$createdAt" },
+//           },
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//       {
+//         $sort: { _id: 1 },
+//       },
+//     ]);
+
+//     // Get daily withdrawals for the past 30 days
+//     const withdrawalsByDay = await Transaction.aggregate([
+//       {
+//         $match: {
+//           source: "withdrawal",
+//           status: "completed",
+//           type: "debit",
+//           createdAt: { $gte: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: {
+//             $dateToString: { format: "%m/%d", date: "$createdAt" },
+//           },
+//           total: { $sum: { $toDouble: "$amount" } },
+//         },
+//       },
+//       {
+//         $sort: { _id: 1 },
+//       },
+//     ]);
+
+//     // Get daily user signups for the past 30 days
+//     const userGrowthByDay = await User.aggregate([
+//       {
+//         $match: {
+//           createdAt: { $gte: thirtyDaysAgo },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: {
+//             $dateToString: { format: "%m/%d", date: "$createdAt" },
+//           },
+//           count: { $sum: 1 },
+//         },
+//       },
+//       {
+//         $sort: { _id: 1 },
+//       },
+//     ]);
+
+//     // Create lookup maps for faster access
+//     const depositMap = {};
+//     depositsByDay.forEach((item) => {
+//       depositMap[item._id] = item.total;
+//     });
+
+//     const withdrawalMap = {};
+//     withdrawalsByDay.forEach((item) => {
+//       withdrawalMap[item._id] = item.total;
+//     });
+
+//     const userGrowthMap = {};
+//     userGrowthByDay.forEach((item) => {
+//       userGrowthMap[item._id] = item.count;
+//     });
+
+//     // Prepare arrays for chart data
+//     const depositsData = [];
+//     const withdrawalsData = [];
+//     const userGrowthData = [];
+
+//     // Fill in the arrays with data from each day
+//     dateLabels.forEach((dateLabel) => {
+//       // Format dateLabel to match MongoDB format
+//       let parts = dateLabel.split("/");
+//       let formattedLabel =
+//         parts[0].padStart(2, "0") + "/" + parts[1].padStart(2, "0");
+
+//       // Use lookup maps to get values
+//       depositsData.push(depositMap[formattedLabel] || 0);
+//       withdrawalsData.push(withdrawalMap[formattedLabel] || 0);
+//       userGrowthData.push(userGrowthMap[formattedLabel] || 0);
+//     });
+
+//     // Calculate percentage changes
+//     const currentMonthDeposits =
+//       totalDepositAmount.length > 0 ? totalDepositAmount[0].total : 0;
+//     const previousMonthDeposits =
+//       prevMonthDeposits.length > 0 ? prevMonthDeposits[0].total : 0;
+//     const depositChange =
+//       previousMonthDeposits === 0
+//         ? 100
+//         : Math.round(
+//             ((currentMonthDeposits - previousMonthDeposits) /
+//               previousMonthDeposits) *
+//               100
+//           );
+
+//     const currentMonthWithdrawals =
+//       totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0;
+//     const previousMonthWithdrawals =
+//       prevMonthWithdrawals.length > 0 ? prevMonthWithdrawals[0].total : 0;
+//     const withdrawalChange =
+//       previousMonthWithdrawals === 0
+//         ? 100
+//         : Math.round(
+//             ((currentMonthWithdrawals - previousMonthWithdrawals) /
+//               previousMonthWithdrawals) *
+//               100
+//           );
+
+//     const currentMonthRewards =
+//       totalRewardsAmount.length > 0 ? totalRewardsAmount[0].total : 0;
+//     const previousMonthRewards =
+//       prevMonthRewards.length > 0 ? prevMonthRewards[0].total : 0;
+//     const rewardChange =
+//       previousMonthRewards === 0
+//         ? 100
+//         : Math.round(
+//             ((currentMonthRewards - previousMonthRewards) /
+//               previousMonthRewards) *
+//               100
+//           );
+
+//     // Get user count change
+//     const prevMonthUsers = await User.countDocuments({
+//       createdAt: { $lt: thirtyDaysAgo, $gte: lastMonth },
+//     });
+
+//     const userChange =
+//       prevMonthUsers === 0
+//         ? 100
+//         : Math.round(((totalUsers - prevMonthUsers) / prevMonthUsers) * 100);
+
+//     // Prepare balance change percentage
+//     const platformBalance =
+//       totalWalletBalance.length > 0 ? totalWalletBalance[0].total : 0;
+//     const balanceChange = Math.round(
+//       ((platformBalance - previousMonthDeposits + previousMonthWithdrawals) /
+//         (previousMonthDeposits - previousMonthWithdrawals || 1)) *
+//         100
+//     );
+
+//     // Format data for response
+//     const analytics = {
+//       financial: {
+//         totalDeposits:
+//           totalDepositAmount.length > 0 ? totalDepositAmount[0].total : 0,
+//         totalWithdrawals:
+//           totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0,
+//         totalRewards:
+//           totalRewardsAmount.length > 0 ? totalRewardsAmount[0].total : 0,
+//         platformBalance,
+//         depositChange,
+//         withdrawalChange,
+//         rewardChange,
+//         balanceChange,
+//       },
+//       users: {
+//         totalUsers,
+//         userChange,
+//       },
+//       userLevels: userLevelsObj,
+//       topUsers: {
+//         byBalance: topUsersByBalance,
+//         byReferrals: topUsersByReferrals,
+//       },
+//       // Add the new fields for pending items
+//       pendingDeposits,
+//       pendingWithdrawals,
+//       pendingTasks,
+//       newContactMessages,
+//       // Add chart data
+//       charts: {
+//         dateLabels: dateLabels,
+//         financialTrend: {
+//           deposits: depositsData,
+//           withdrawals: withdrawalsData,
+//         },
+//         userGrowth: userGrowthData,
+//       },
+//     };
+
+//     res.json(analytics);
+//   } catch (error) {
+//     console.error("ADMIN ANALYTICS ERROR:", error);
+//     res.status(500).json({
+//       error: "Error generating analytics",
+//       message: error.message,
+//     });
+//   }
+// };
+
 exports.getAdminAnalytics = async (req, res) => {
   try {
-    // Get financial data
+    // Get total invested amount from investments collection
+    const totalInvestedAmount = await Investment.aggregate([
+      {
+        $match: {
+          status: { $in: ["active", "completed"] }, // Include both active and completed investments
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$initialAmount" } },
+        },
+      },
+    ]);
+
+    // Get financial data from transactions
     const totalDepositAmount = await Transaction.aggregate([
       {
         $match: {
@@ -249,6 +752,7 @@ exports.getAdminAnalytics = async (req, res) => {
         },
       },
     ]);
+
     const totalWithdrawalAmount = await Transaction.aggregate([
       {
         $match: {
@@ -264,6 +768,8 @@ exports.getAdminAnalytics = async (req, res) => {
         },
       },
     ]);
+
+    // Total rewards - includes task rewards, referral earnings, and bonuses
     const totalRewardsAmount = await Transaction.aggregate([
       {
         $match: {
@@ -283,15 +789,7 @@ exports.getAdminAnalytics = async (req, res) => {
         },
       },
     ]);
-    // Get total platform balance
-    const totalWalletBalance = await Wallet.aggregate([
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$balance" },
-        },
-      },
-    ]);
+
     // Get user stats
     const totalUsers = await User.countDocuments({ role: "subscriber" });
     const activeInvestors = await Investment.countDocuments({
@@ -435,6 +933,22 @@ exports.getAdminAnalytics = async (req, res) => {
     lastMonth.setDate(lastMonth.getDate() - 60);
     const twoMonthsAgo = new Date();
     twoMonthsAgo.setDate(twoMonthsAgo.getDate() - 90);
+
+    // Previous month investments
+    const prevMonthInvestments = await Investment.aggregate([
+      {
+        $match: {
+          status: { $in: ["active", "completed"] },
+          createdAt: { $gte: lastMonth, $lt: thirtyDaysAgo },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $toDouble: "$initialAmount" } },
+        },
+      },
+    ]);
 
     // Previous month deposits
     const prevMonthDeposits = await Transaction.aggregate([
@@ -611,6 +1125,19 @@ exports.getAdminAnalytics = async (req, res) => {
     });
 
     // Calculate percentage changes
+    const currentMonthInvestments =
+      totalInvestedAmount.length > 0 ? totalInvestedAmount[0].total : 0;
+    const previousMonthInvestments =
+      prevMonthInvestments.length > 0 ? prevMonthInvestments[0].total : 0;
+    const investmentChange =
+      previousMonthInvestments === 0
+        ? 100
+        : Math.round(
+            ((currentMonthInvestments - previousMonthInvestments) /
+              previousMonthInvestments) *
+              100
+          );
+
     const currentMonthDeposits =
       totalDepositAmount.length > 0 ? totalDepositAmount[0].total : 0;
     const previousMonthDeposits =
@@ -660,29 +1187,17 @@ exports.getAdminAnalytics = async (req, res) => {
         ? 100
         : Math.round(((totalUsers - prevMonthUsers) / prevMonthUsers) * 100);
 
-    // Prepare balance change percentage
-    const platformBalance =
-      totalWalletBalance.length > 0 ? totalWalletBalance[0].total : 0;
-    const balanceChange = Math.round(
-      ((platformBalance - previousMonthDeposits + previousMonthWithdrawals) /
-        (previousMonthDeposits - previousMonthWithdrawals || 1)) *
-        100
-    );
-
     // Format data for response
     const analytics = {
       financial: {
-        totalDeposits:
-          totalDepositAmount.length > 0 ? totalDepositAmount[0].total : 0,
-        totalWithdrawals:
-          totalWithdrawalAmount.length > 0 ? totalWithdrawalAmount[0].total : 0,
-        totalRewards:
-          totalRewardsAmount.length > 0 ? totalRewardsAmount[0].total : 0,
-        platformBalance,
+        platformBalance: currentMonthInvestments, // Total invested amount as platform balance
+        totalDeposits: currentMonthDeposits,
+        totalWithdrawals: currentMonthWithdrawals,
+        totalRewards: currentMonthRewards,
+        investmentChange,
         depositChange,
         withdrawalChange,
         rewardChange,
-        balanceChange,
       },
       users: {
         totalUsers,
@@ -713,9 +1228,93 @@ exports.getAdminAnalytics = async (req, res) => {
   } catch (error) {
     console.error("ADMIN ANALYTICS ERROR:", error);
     res.status(500).json({
-      error: "Error generating analytics",
-      message: error.message,
+      error: "Failed to fetch admin analytics",
     });
+  }
+};
+
+exports.getUsers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20; // Changed from 10 to 20
+    const skip = (page - 1) * limit;
+    const email = req.query.email || "";
+
+    let matchQuery = { role: "subscriber" };
+    if (email) {
+      matchQuery.email = { $regex: email, $options: "i" };
+    }
+
+    const users = await User.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: "wallets",
+          localField: "email",
+          foreignField: "email",
+          as: "wallet",
+        },
+      },
+      {
+        $lookup: {
+          from: "investments",
+          localField: "_id",
+          foreignField: "user",
+          as: "investments",
+        },
+      },
+      {
+        $addFields: {
+          wallet: { $arrayElemAt: ["$wallet", 0] },
+          totalInvestment: { $sum: "$investments.amount" },
+          purchasedLevels: {
+            $reduce: {
+              input: {
+                $setUnion: {
+                  $map: {
+                    input: "$investments",
+                    as: "investment",
+                    in: {
+                      $ifNull: [
+                        "$$investment.plan.minLevel",
+                        "$$investment.plan.level",
+                      ],
+                    },
+                  },
+                },
+              },
+              initialValue: "",
+              in: {
+                $cond: {
+                  if: { $eq: ["$$value", ""] },
+                  then: { $toString: "$$this" },
+                  else: {
+                    $concat: ["$$value", ", ", { $toString: "$$this" }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    const total = await User.countDocuments(matchQuery);
+
+    res.json({
+      users,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalItems: total,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 };
 
