@@ -6,11 +6,11 @@ const Investment = require("../models/investment");
 const Transaction = require("../models/transaction");
 
 // Get current user's team members with enhanced data
+
 exports.getTeamMembers = async (req, res) => {
   try {
     const userEmail = req.user.email;
     const founduser = await User.findOne({ email: userEmail });
-    // Use the found userId
     const userId = founduser._id;
 
     // Find all users who have this user as their referrer
@@ -26,7 +26,38 @@ exports.getTeamMembers = async (req, res) => {
           user: member._id,
         })
           .sort({ createdAt: 1 })
-          .populate("plan", "minLevel"); // Populate plan to get the level
+          .populate("plan", "minLevel level planNumber");
+
+        // Get the main user's level at the time of the member's first investment
+        let mainUserLevelAtPurchase = founduser.level; // Default to current level
+
+        if (firstInvestment) {
+          // Find what the main user's level was at the time of this investment
+          // We can do this by finding the main user's investment history up to that date
+          const mainUserInvestmentsBeforeMemberPurchase = await Investment.find(
+            {
+              user: userId,
+              createdAt: { $lte: firstInvestment.createdAt },
+            }
+          )
+            .sort({ createdAt: -1 })
+            .populate("plan", "minLevel level planNumber");
+
+          // Get the highest level the main user had achieved by that time
+          if (mainUserInvestmentsBeforeMemberPurchase.length > 0) {
+            const levels = mainUserInvestmentsBeforeMemberPurchase.map(
+              (inv) =>
+                inv.plan?.minLevel ||
+                inv.plan?.level ||
+                inv.plan?.planNumber ||
+                0
+            );
+            mainUserLevelAtPurchase = Math.max(...levels);
+          } else {
+            // If main user had no investments by that time, they were level 0
+            mainUserLevelAtPurchase = 0;
+          }
+        }
 
         // Get commission earned from this specific member
         const commissionTransaction = await Transaction.findOne({
@@ -45,7 +76,7 @@ exports.getTeamMembers = async (req, res) => {
           if (memberInvestments.length > 0) {
             const firstInvestmentDate = memberInvestments[0].createdAt;
             // Find commission transaction around the same time (within 1 minute)
-            const timeBuffer = new Date(firstInvestmentDate.getTime() + 60000); // 1 minute buffer
+            const timeBuffer = new Date(firstInvestmentDate.getTime() + 60000);
             const timeBufferBefore = new Date(
               firstInvestmentDate.getTime() - 60000
             );
@@ -73,29 +104,37 @@ exports.getTeamMembers = async (req, res) => {
             ? member.email.substring(0, 5) + "*****"
             : member.email + "*****";
 
-        // Get the first purchase level from the investment plan
-        const firstPurchaseLevel =
+        // Get the member's first purchase level
+        const memberFirstPurchaseLevel =
           firstInvestment && firstInvestment.plan
-            ? firstInvestment.plan.minLevel
+            ? firstInvestment.plan.minLevel ||
+              firstInvestment.plan.level ||
+              firstInvestment.plan.planNumber
             : 0;
 
         return {
           ...member,
           name: maskedName,
           email: maskedEmail,
-          level: firstPurchaseLevel, // Use first purchase level instead of current level
+          memberCurrentLevel: member.level, // Member's current level
+          memberFirstPurchaseLevel: memberFirstPurchaseLevel, // Member's first purchase level
+          mainUserLevelAtPurchase: mainUserLevelAtPurchase, // Main user's level when member purchased
           firstInvestmentAmount: firstInvestment
             ? firstInvestment.amount
             : null,
           commissionEarned: commissionAmount,
+          joinedDate: member.createdAt,
+          firstInvestmentDate: firstInvestment
+            ? firstInvestment.createdAt
+            : null,
         };
       })
     );
 
-    // Get statistics - update to use first purchase levels
+    // Get statistics
     const totalTeamMembers = teamMembers.length;
     const totalActiveMembers = enhancedTeamMembers.filter(
-      (member) => member.level > 0
+      (member) => member.memberFirstPurchaseLevel > 0
     ).length;
 
     // Get earnings from affiliate program
