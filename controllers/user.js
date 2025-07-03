@@ -9,99 +9,230 @@ const Investment = require("../models/investment");
 // Get all users for admin with wallet balances
 exports.getUsers = async (req, res) => {
   try {
-    // Get pagination parameters from request
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
+    const email = req.query.email || "";
 
-    // Get search parameter
-    const emailSearch = req.query.email || "";
-
-    // Build query
-    let query = {};
-    if (emailSearch) {
-      query.email = { $regex: emailSearch, $options: "i" };
+    let matchQuery = { role: "subscriber" };
+    if (email) {
+      matchQuery.email = { $regex: email, $options: "i" };
     }
 
-    // Count total users matching query for pagination
-    const total = await User.countDocuments(query);
+    const users = await User.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: "wallets",
+          localField: "email",
+          foreignField: "email",
+          as: "wallet",
+        },
+      },
+      {
+        $lookup: {
+          from: "investments",
+          localField: "_id",
+          foreignField: "user",
+          as: "investments",
+        },
+      },
+      {
+        $lookup: {
+          from: "deposits",
+          localField: "_id",
+          foreignField: "user",
+          as: "deposits",
+        },
+      },
+      {
+        $lookup: {
+          from: "withdrawals",
+          localField: "_id",
+          foreignField: "user",
+          as: "withdrawals",
+        },
+      },
+      {
+        $lookup: {
+          from: "transactions",
+          localField: "email",
+          foreignField: "email",
+          as: "transactions",
+        },
+      },
+      {
+        $addFields: {
+          wallet: { $arrayElemAt: ["$wallet", 0] },
+          totalInvestment: { $sum: "$investments.amount" },
 
-    // Fetch users with pagination, excluding sensitive information
-    const users = await User.find(query)
-      .select("-__v -password") // Exclude sensitive fields
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .skip(skip)
-      .limit(limit);
+          // Calculate total approved deposits
+          totalDeposits: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$deposits",
+                    cond: { $eq: ["$$this.status", "approved"] },
+                  },
+                },
+                as: "deposit",
+                in: "$$deposit.amount",
+              },
+            },
+          },
 
-    // Create a map of user IDs to user objects for easier referrer lookup
-    const userMap = {};
-    users.forEach((user) => {
-      userMap[user._id.toString()] = user;
-    });
+          // Calculate total approved withdrawals
+          totalWithdrawals: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$withdrawals",
+                    cond: { $eq: ["$$this.status", "approved"] },
+                  },
+                },
+                as: "withdrawal",
+                in: "$$withdrawal.amount",
+              },
+            },
+          },
 
-    // Get all wallets in a single query for efficiency
-    const wallets = await Wallet.find({
-      email: { $in: users.map((user) => user.email) },
-    });
+          // Calculate task earnings from transactions
+          taskEarnings: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$transactions",
+                    cond: {
+                      $and: [
+                        { $eq: ["$$this.source", "task_reward"] },
+                        { $eq: ["$$this.status", "completed"] },
+                        { $eq: ["$$this.type", "credit"] },
+                      ],
+                    },
+                  },
+                },
+                as: "transaction",
+                in: "$$transaction.amount",
+              },
+            },
+          },
 
-    // Create a lookup map for quick access to wallets
-    const walletMap = {};
-    wallets.forEach((wallet) => {
-      walletMap[wallet.email] = {
-        balance: wallet.balance,
-        currency: wallet.currency,
-        isActive: wallet.isActive,
+          // Calculate team earnings (referral commissions) from transactions
+          teamEarnings: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: "$transactions",
+                    cond: {
+                      $and: [
+                        { $eq: ["$$this.source", "referral"] },
+                        { $eq: ["$$this.status", "completed"] },
+                        { $eq: ["$$this.type", "credit"] },
+                      ],
+                    },
+                  },
+                },
+                as: "transaction",
+                in: "$$transaction.amount",
+              },
+            },
+          },
+
+          purchasedLevels: {
+            $reduce: {
+              input: {
+                $setUnion: {
+                  $map: {
+                    input: "$investments",
+                    as: "investment",
+                    in: {
+                      $ifNull: [
+                        "$$investment.plan.minLevel",
+                        "$$investment.plan.level",
+                      ],
+                    },
+                  },
+                },
+              },
+              initialValue: "",
+              in: {
+                $cond: {
+                  if: { $eq: ["$$value", ""] },
+                  then: { $toString: "$$this" },
+                  else: {
+                    $concat: ["$$value", ", ", { $toString: "$$this" }],
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          // Remove the large arrays from final output to reduce response size
+          deposits: 0,
+          withdrawals: 0,
+          transactions: 0,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+    ]);
+
+    // Get team information for each user
+    const userIds = users.map((user) => user._id);
+
+    // Count team members for each user (how many users have this user as referrer)
+    const teamCounts = await User.aggregate([
+      {
+        $match: {
+          referrer: { $in: userIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$referrer",
+          count: { $sum: 1 },
+          members: {
+            $push: {
+              _id: "$_id",
+              name: "$name",
+              email: "$email",
+              level: "$level",
+            },
+          },
+        },
+      },
+    ]);
+
+    // Create a lookup map for team data
+    const teamMap = {};
+    teamCounts.forEach((team) => {
+      teamMap[team._id.toString()] = {
+        count: team.count,
+        members: team.members.slice(0, 5), // Limit to first 5 members for performance
       };
     });
 
-    // Process all users to add wallet data and team info
-    const usersWithData = users.map((user) => {
-      const userObject = user.toObject();
-
-      // Add wallet data
-      userObject.wallet = walletMap[user.email] || {
-        balance: 0,
-        currency: "USD",
-        isActive: true,
-      };
-
-      // Add team info
-      userObject.team = {
+    // Add team information to each user
+    const usersWithTeam = users.map((user) => ({
+      ...user,
+      team: teamMap[user._id.toString()] || {
         count: 0,
         members: [],
-      };
+      },
+    }));
 
-      return userObject;
-    });
-
-    // Count team members for each user
-    users.forEach((user) => {
-      if (user.referrer) {
-        const referrerId = user.referrer.toString();
-        // Find the referrer in our processed users array
-        const referrerIndex = usersWithData.findIndex(
-          (u) => u._id.toString() === referrerId
-        );
-
-        if (referrerIndex !== -1) {
-          // Increment the team count
-          usersWithData[referrerIndex].team.count += 1;
-
-          // Add to the team members array (limit to first 5 for performance)
-          if (usersWithData[referrerIndex].team.members.length < 5) {
-            usersWithData[referrerIndex].team.members.push({
-              _id: user._id,
-              name: user.name || "Anonymous",
-              email: user.email,
-              level: user.level || 1,
-            });
-          }
-        }
-      }
-    });
+    const total = await User.countDocuments(matchQuery);
 
     res.json({
-      users: usersWithData,
+      users: usersWithTeam,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -109,7 +240,7 @@ exports.getUsers = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get users error:", error);
+    console.error("Error fetching users:", error);
     res.status(500).json({ error: "Failed to fetch users" });
   }
 };
