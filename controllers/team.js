@@ -68,27 +68,78 @@ exports.getTeamMembers = async (req, res) => {
 
         // If no direct match by email in description, find by pattern matching
         let commissionAmount = 0;
-        if (commissionTransaction) {
-          commissionAmount = commissionTransaction.amount;
-        } else {
-          // Alternative: Get all referral transactions and try to match timing
-          const memberInvestments = await Investment.find({ user: member._id });
-          if (memberInvestments.length > 0) {
-            const firstInvestmentDate = memberInvestments[0].createdAt;
-            // Find commission transaction around the same time (within 1 minute)
-            const timeBuffer = new Date(firstInvestmentDate.getTime() + 60000);
-            const timeBufferBefore = new Date(
-              firstInvestmentDate.getTime() - 60000
-            );
-
-            const relatedCommission = await Transaction.findOne({
+        if (firstInvestment) {
+          // Method 1: Try to find commission by investment amount in description
+          const investmentAmount = firstInvestment.amount;
+          const commissionByAmount = await Transaction.findOne({
+            email: userEmail,
+            source: "referral",
+            status: "completed",
+            description: {
+              $regex: new RegExp(`\\$${investmentAmount}\\.00`, "i"),
+            },
+            // Look for transactions created around the time of the investment
+            createdAt: {
+              $gte: new Date(
+                firstInvestment.createdAt.getTime() - 2 * 60 * 1000
+              ), // 2 minutes before
+              $lte: new Date(
+                firstInvestment.createdAt.getTime() + 2 * 60 * 1000
+              ), // 2 minutes after
+            },
+          });
+          if (commissionByAmount) {
+            commissionAmount = commissionByAmount.amount;
+          } else {
+            // Method 2: Try to find by reference pattern and timing
+            const commissionByTiming = await Transaction.findOne({
               email: userEmail,
               source: "referral",
-              createdAt: { $gte: timeBufferBefore, $lte: timeBuffer },
+              status: "completed",
+              createdAt: {
+                $gte: new Date(
+                  firstInvestment.createdAt.getTime() - 2 * 60 * 1000
+                ),
+                $lte: new Date(
+                  firstInvestment.createdAt.getTime() + 2 * 60 * 1000
+                ),
+              },
             });
-
-            if (relatedCommission) {
-              commissionAmount = relatedCommission.amount;
+            if (commissionByTiming) {
+              // Additional verification: check if the commission amount makes sense
+              // For example, if it's 25% of the investment amount
+              const expectedCommission = investmentAmount * 0.25;
+              if (
+                Math.abs(commissionByTiming.amount - expectedCommission) < 0.01
+              ) {
+                commissionAmount = commissionByTiming.amount;
+              }
+            }
+          }
+          // Method 3: If still no match, try broader search with calculation verification
+          if (commissionAmount === 0) {
+            const allCommissions = await Transaction.find({
+              email: userEmail,
+              source: "referral",
+              status: "completed",
+              createdAt: {
+                $gte: new Date(
+                  firstInvestment.createdAt.getTime() - 5 * 60 * 1000
+                ), // 5 minutes window
+                $lte: new Date(
+                  firstInvestment.createdAt.getTime() + 5 * 60 * 1000
+                ),
+              },
+            }).sort({ createdAt: 1 });
+            // Try to match by expected commission calculation
+            for (const commission of allCommissions) {
+              // Check if this commission could be from this investment
+              // Assuming 25% commission rate - adjust based on your actual rates
+              const possibleInvestmentAmount = commission.amount / 0.25;
+              if (Math.abs(possibleInvestmentAmount - investmentAmount) < 1) {
+                commissionAmount = commission.amount;
+                break;
+              }
             }
           }
         }
@@ -158,6 +209,7 @@ exports.getTeamMembers = async (req, res) => {
     });
   }
 };
+
 // Generate or get affiliate link
 exports.getAffiliateCode = async (req, res) => {
   try {
