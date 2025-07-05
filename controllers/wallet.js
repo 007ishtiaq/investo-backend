@@ -188,15 +188,58 @@ exports.getTransactionHistory = async (req, res) => {
       query.description = { $regex: search, $options: "i" };
     }
 
+    // Get transactions
     const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
+    // Find the user to get their ID for withdrawal lookups
+    const user = await User.findOne({ email });
+
+    // Enhance withdrawal transactions with transaction ID and payment method
+    const enhancedTransactions = await Promise.all(
+      transactions.map(async (transaction) => {
+        const transactionObj = transaction.toObject();
+
+        // If this is a completed withdrawal transaction, enhance the description
+        if (
+          transaction.source === "withdrawal" &&
+          transaction.status === "completed" &&
+          user
+        ) {
+          try {
+            // Find the corresponding withdrawal record
+            const withdrawal = await Withdrawal.findOne({
+              user: user._id,
+              amount: transaction.amount,
+              createdAt: {
+                $gte: new Date(transaction.createdAt.getTime() - 60000), // 1 minute before
+                $lte: new Date(transaction.createdAt.getTime() + 60000), // 1 minute after
+              },
+            });
+
+            if (
+              withdrawal &&
+              withdrawal.transactionId &&
+              withdrawal.paymentMethod
+            ) {
+              // Update description with payment method and transaction ID on new line
+              transactionObj.description = `Withdrawal completed to ${withdrawal.paymentMethod} \n | Transaction ID: ${withdrawal.transactionId}`;
+            }
+          } catch (error) {
+            console.error("Error fetching withdrawal details:", error);
+          }
+        }
+
+        return transactionObj;
+      })
+    );
+
     const total = await Transaction.countDocuments(query);
 
     res.status(200).json({
-      transactions,
+      transactions: enhancedTransactions,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
