@@ -210,6 +210,228 @@ exports.getTeamMembers = async (req, res) => {
   }
 };
 
+exports.getTeamMembersByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Verify that the requesting user has admin privileges or is requesting their own data
+    const requestingUser = req.user;
+
+    // Optional: Add admin check if this is admin-only functionality
+    // if (requestingUser.role !== 'admin' && requestingUser._id.toString() !== userId) {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: "Access denied. Insufficient permissions."
+    //   });
+    // }
+
+    // Find the target user
+    const targetUser = await User.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Find all users who have this user as their referrer
+    const teamMembers = await User.find({ referrer: userId })
+      .select("name email level createdAt")
+      .lean();
+
+    // Enhanced team members with additional data
+    const enhancedTeamMembers = await Promise.all(
+      teamMembers.map(async (member) => {
+        // Get first investment (oldest investment) with amount and plan details
+        const firstInvestment = await Investment.findOne({
+          user: member._id,
+        })
+          .sort({ createdAt: 1 })
+          .populate("plan", "minLevel level planNumber");
+
+        // Get the target user's level at the time of the member's first investment
+        let targetUserLevelAtPurchase = targetUser.level; // Default to current level
+
+        if (firstInvestment) {
+          // Find what the target user's level was at the time of this investment
+          const targetUserInvestmentsBeforeMemberPurchase =
+            await Investment.find({
+              user: userId,
+              createdAt: { $lte: firstInvestment.createdAt },
+            })
+              .sort({ createdAt: -1 })
+              .populate("plan", "minLevel level planNumber");
+
+          // Get the highest level the target user had achieved by that time
+          if (targetUserInvestmentsBeforeMemberPurchase.length > 0) {
+            const levels = targetUserInvestmentsBeforeMemberPurchase.map(
+              (inv) =>
+                inv.plan?.minLevel ||
+                inv.plan?.level ||
+                inv.plan?.planNumber ||
+                0
+            );
+            targetUserLevelAtPurchase = Math.max(...levels);
+          } else {
+            // If target user had no investments by that time, they were level 0
+            targetUserLevelAtPurchase = 0;
+          }
+        }
+
+        // Get commission earned from this specific member
+        let commissionAmount = 0;
+        if (firstInvestment) {
+          // Method 1: Try to find commission by investment amount in description
+          const investmentAmount = firstInvestment.amount;
+          const commissionByAmount = await Transaction.findOne({
+            email: targetUser.email,
+            source: "referral",
+            status: "completed",
+            description: {
+              $regex: new RegExp(`\\$${investmentAmount}\\.00`, "i"),
+            },
+            // Look for transactions created around the time of the investment
+            createdAt: {
+              $gte: new Date(
+                firstInvestment.createdAt.getTime() - 2 * 60 * 1000
+              ), // 2 minutes before
+              $lte: new Date(
+                firstInvestment.createdAt.getTime() + 2 * 60 * 1000
+              ), // 2 minutes after
+            },
+          });
+
+          if (commissionByAmount) {
+            commissionAmount = commissionByAmount.amount;
+          } else {
+            // Method 2: Try to find by reference pattern and timing
+            const commissionByTiming = await Transaction.findOne({
+              email: targetUser.email,
+              source: "referral",
+              status: "completed",
+              createdAt: {
+                $gte: new Date(
+                  firstInvestment.createdAt.getTime() - 2 * 60 * 1000
+                ),
+                $lte: new Date(
+                  firstInvestment.createdAt.getTime() + 2 * 60 * 1000
+                ),
+              },
+            });
+
+            if (commissionByTiming) {
+              // Additional verification: check if the commission amount makes sense
+              const expectedCommission = investmentAmount * 0.25;
+              if (
+                Math.abs(commissionByTiming.amount - expectedCommission) < 0.01
+              ) {
+                commissionAmount = commissionByTiming.amount;
+              }
+            }
+          }
+
+          // Method 3: If still no match, try broader search with calculation verification
+          if (commissionAmount === 0) {
+            const allCommissions = await Transaction.find({
+              email: targetUser.email,
+              source: "referral",
+              status: "completed",
+              createdAt: {
+                $gte: new Date(
+                  firstInvestment.createdAt.getTime() - 5 * 60 * 1000
+                ), // 5 minutes window
+                $lte: new Date(
+                  firstInvestment.createdAt.getTime() + 5 * 60 * 1000
+                ),
+              },
+            }).sort({ createdAt: 1 });
+
+            // Try to match by expected commission calculation
+            for (const commission of allCommissions) {
+              // Check if this commission could be from this investment
+              const possibleInvestmentAmount = commission.amount / 0.25;
+              if (Math.abs(possibleInvestmentAmount - investmentAmount) < 1) {
+                commissionAmount = commission.amount;
+                break;
+              }
+            }
+          }
+        }
+
+        // Privacy protection: mask name and email for admin view
+        const maskedName =
+          member.name && member.name.length > 5
+            ? member.name.substring(0, 5) + "*****"
+            : (member.name || "Unknown") + "*****";
+
+        const maskedEmail =
+          member.email && member.email.length > 5
+            ? member.email.substring(0, 5) + "*****"
+            : member.email + "*****";
+
+        // Get the member's first purchase level
+        const memberFirstPurchaseLevel =
+          firstInvestment && firstInvestment.plan
+            ? firstInvestment.plan.minLevel ||
+              firstInvestment.plan.level ||
+              firstInvestment.plan.planNumber
+            : 0;
+
+        return {
+          ...member,
+          name: maskedName,
+          email: maskedEmail,
+          memberCurrentLevel: member.level, // Member's current level
+          memberFirstPurchaseLevel: memberFirstPurchaseLevel, // Member's first purchase level
+          mainUserLevelAtPurchase: targetUserLevelAtPurchase, // Target user's level when member purchased
+          firstInvestmentAmount: firstInvestment
+            ? firstInvestment.amount
+            : null,
+          commissionEarned: commissionAmount,
+          joinedDate: member.createdAt,
+          firstInvestmentDate: firstInvestment
+            ? firstInvestment.createdAt
+            : null,
+        };
+      })
+    );
+
+    // Get statistics
+    const totalTeamMembers = teamMembers.length;
+    const totalActiveMembers = enhancedTeamMembers.filter(
+      (member) => member.memberFirstPurchaseLevel > 0
+    ).length;
+
+    // Get earnings from affiliate program for the target user
+    const affiliateEarnings = targetUser.affiliateEarnings || 0;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        teamMembers: enhancedTeamMembers,
+        stats: {
+          totalMembers: totalTeamMembers,
+          activeMembers: totalActiveMembers,
+          affiliateEarnings,
+        },
+        targetUser: {
+          _id: targetUser._id,
+          name: targetUser.name,
+          email: targetUser.email,
+          level: targetUser.level,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Error fetching team members by user ID:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch team members",
+      error: err.message,
+    });
+  }
+};
+
 // Generate or get affiliate link
 exports.getAffiliateCode = async (req, res) => {
   try {
