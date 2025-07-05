@@ -700,6 +700,7 @@ cloudinary.config({
 //   }
 // };
 // Updated verifyTask controller
+
 exports.verifyTask = async (req, res) => {
   try {
     const taskId = req.params.taskId;
@@ -771,7 +772,7 @@ exports.verifyTask = async (req, res) => {
         startedAt: new Date(),
         completed: false,
         verified: false,
-        reward: dynamicReward, // Store the calculated dynamic reward
+        reward: dynamicReward,
         status: "started",
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -788,6 +789,7 @@ exports.verifyTask = async (req, res) => {
 
     // Handle YouTube watch task verification
     if (task.type === "youtube_watch") {
+      // Auto-verify YouTube tasks
       if (task.autoVerify) {
         const watchedDuration = parseInt(verificationData.watchTime || 0);
         const requiredDuration = parseInt(task.videoDuration || 30);
@@ -805,7 +807,7 @@ exports.verifyTask = async (req, res) => {
           userTask.verified = true;
           userTask.status = "approved";
           userTask.completedAt = new Date();
-          userTask.reward = dynamicReward; // Update with calculated reward
+          userTask.reward = dynamicReward;
           userTask.updatedAt = new Date();
 
           await userTask.save();
@@ -835,6 +837,25 @@ exports.verifyTask = async (req, res) => {
           });
         }
       }
+      // Manual verification for YouTube tasks (autoVerify: false)
+      else {
+        // For manual verification, we just mark as pending verification
+        userTask.verificationData = verificationData;
+        userTask.reward = dynamicReward;
+        userTask.status = "pending_verification";
+        userTask.submittedAt = new Date();
+        userTask.updatedAt = new Date();
+
+        await userTask.save();
+
+        return res.json({
+          success: true,
+          message:
+            "Task submitted successfully. Waiting for admin verification.",
+          status: "pending_verification",
+          estimatedReward: dynamicReward,
+        });
+      }
     }
 
     // Handle screenshot task verification
@@ -854,7 +875,7 @@ exports.verifyTask = async (req, res) => {
             ...verificationData,
             screenshotUrl: uploadResult.secure_url,
           };
-          userTask.reward = dynamicReward; // Store calculated reward
+          userTask.reward = dynamicReward;
           userTask.status = "pending_verification";
           userTask.submittedAt = new Date();
           userTask.updatedAt = new Date();
