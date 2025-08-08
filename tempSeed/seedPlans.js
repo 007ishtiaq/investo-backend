@@ -1,3 +1,4 @@
+// cd .\tempSeed\
 // node .\seedPlans.js
 
 // server/seedPlans.js
@@ -13,12 +14,13 @@ const samplePlans = [
   // Daily Income Plans
   {
     name: "Basic Plan",
-    description: "Entry-level plan with daily profit distribution",
+    description:
+      "A beginner-friendly plan offering low investment entry and stable daily income.",
     minAmount: 2,
     maxAmount: 9,
     durationInDays: 1,
-    returnRate: 0.5,
-    dailyIncome: 0.5,
+    returnRate: 0.5, // Total ROI in percentage
+    dailyIncome: 0.5, // Percent per day
     isFixedDeposit: false,
     features: [
       "Daily profit distribution",
@@ -31,7 +33,8 @@ const samplePlans = [
   },
   {
     name: "Standard Plan",
-    description: "Mid-level plan with enhanced features and returns",
+    description:
+      "A balanced plan with better returns, suitable for growing investors.",
     minAmount: 10,
     maxAmount: 199,
     durationInDays: 1,
@@ -50,11 +53,12 @@ const samplePlans = [
   },
   {
     name: "Premium Plan",
-    description: "Advanced plan with premium features and higher returns",
+    description:
+      "High-performance plan designed for serious investors aiming for strong returns.",
     minAmount: 200,
     maxAmount: 499,
     durationInDays: 1,
-    returnRate: 3, // 1.2% daily * 90 days
+    returnRate: 3,
     dailyIncome: 3,
     isFixedDeposit: false,
     features: [
@@ -70,11 +74,12 @@ const samplePlans = [
   },
   {
     name: "Elite Plan",
-    description: "Top-tier plan with maximum returns and exclusive benefits",
+    description:
+      "Our most advanced plan with maximum rewards, designed for elite investors.",
     minAmount: 500,
     maxAmount: 1000000,
     durationInDays: 1,
-    returnRate: 4, // 1.5% daily * 180 days
+    returnRate: 4,
     dailyIncome: 4,
     isFixedDeposit: false,
     features: [
