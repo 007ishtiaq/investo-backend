@@ -24,18 +24,52 @@ const transporter = nodemailer.createTransport({
 
 const otpEmailtemplate = (otpCode) => {
   return `
-  <div style="font-family: Helvetica, Arial, sans-serif; min-width: 1000px; overflow: auto; line-height: 1.6;">
-  <div style="margin: 50px auto; width: 70%; padding: 20px 0;">
-    <div style="border-bottom: 1px solid #eee;">
-      <a href="#" style="font-size: 1.8em; color: #6c5dd3; text-decoration: none; font-weight: 600;">Investo</a>
-    </div>
-    <p style="font-size: 1.1em;">Hi,</p>
-    <p>Thank you for choosing Investo. Use the following OTP to complete your Sign Up procedures. The OTP is valid for 15 minutes.</p>
-    <h2 style="background: #3f8cff; margin: 0 auto; width: max-content; padding: 10px; color: #fff; border-radius: 4px; text-align: center;">${otpCode}</h2>
-    <p style="font-size: 0.9em;">Regards,<br />Investo</p>
-    <hr style="border: none; border-top: 1px solid #eee;" />
-  </div>
-</div>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your OTP Code</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f5f7fa; font-family: Arial, sans-serif; color:#333;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f5f7fa; padding: 30px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <tr>
+              <td style="background-color:#6c5dd3; padding: 20px; text-align:center;">
+                <h1 style="color:#ffffff; margin:0; font-size: 24px;">TrustyVest</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 30px;">
+                <h2 style="margin-top:0; color:#333;">Your One-Time Password (OTP)</h2>
+                <p style="font-size:16px; line-height:1.5; margin-bottom: 20px;">
+                  Thank you for choosing <strong>TrustyVest</strong>.<br />
+                  Use the OTP below to complete your sign-up process. This code will expire in <strong>15 minutes</strong>.
+                </p>
+                <div style="text-align:center; margin: 30px 0;">
+                  <span style="display:inline-block; font-size:28px; letter-spacing:4px; background:#6c5dd3; color:#fff; padding:12px 24px; border-radius:6px; font-weight:bold;">
+                    ${otpCode}
+                  </span>
+                </div>
+                <p style="font-size:14px; color:#555;">
+                  If you did not request this code, please ignore this email or contact our support team.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="background-color:#f0f0f0; padding: 20px; text-align:center; font-size:12px; color:#888;">
+                © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br />
+                support@trustyvest.com
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>
   `;
 };
 
