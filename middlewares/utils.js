@@ -5,8 +5,17 @@ const PDFDocument = require("pdfkit");
 const User = require("../models/user");
 
 // Create a transporter using Mailjet's SMTP
+// const transporter = nodemailer.createTransport({
+//   service: "Mailjet",
+//   auth: {
+//     user: process.env.MAILJET_API_KEY,
+//     pass: process.env.MAILJET_SECRET_KEY,
+//   },
+// });
+
 const transporter = nodemailer.createTransport({
-  service: "Mailjet",
+  host: "in-v3.mailjet.com", // Mailjet SMTP endpoint
+  port: 2525, // or 465 for SSL
   auth: {
     user: process.env.MAILJET_API_KEY,
     pass: process.env.MAILJET_SECRET_KEY,

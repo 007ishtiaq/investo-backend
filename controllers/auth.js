@@ -64,13 +64,17 @@ exports.sendOTP = async (req, res) => {
     const saltRounds = 10;
 
     try {
-      // Remove all previously saved OTPs for this email
+      console.log("Step 1: Deleting old OTP entries for email:", email);
       await OtpVerification.deleteMany({ userEmail: email });
+      console.log("Step 1 complete: Old OTP entries deleted.");
 
       // Hash the OTP before saving it to the database
+      console.log("Step 2: Hashing OTP...");
       const hashedOtp = await bcrypt.hash(otp.toString(), saltRounds);
+      console.log("Step 2 complete: OTP hashed.");
 
       // Save the OTP with email and timestamps in your database
+      console.log("Step 3: Saving OTP in database...");
       const otpVerification = new OtpVerification({
         userEmail: email,
         otp: hashedOtp,
@@ -79,23 +83,29 @@ exports.sendOTP = async (req, res) => {
       });
 
       await otpVerification.save();
+      console.log("Step 3 complete: OTP saved in DB.");
 
       // Email content
+      console.log("Step 4: Preparing email options...");
       const mailOptions = {
-        from: "Your App <ishtiaqahmad427427@gmail.com>",
+        from: '"TrustyVest" <support@trustyvest.com>',
         to: email,
-        subject: "Investo [OTP Code]",
-        // text: `Your OTP code is ${otp}. It will expire in 10 minutes.`,
+        subject: "TrustyVest [Your OTP Code]",
         html: otpEmailtemplate((otpCode = otp)),
       };
+      console.log("Step 4 complete: Email options prepared:", mailOptions);
 
-      // Send email using Mailjet
-      await transporter.sendMail(mailOptions);
+      // Send email using SMTP
+      console.log("Step 5: Sending email via transporter...");
+      const emailResult = await transporter.sendMail(mailOptions);
+      console.log("Step 5 complete: Email sent successfully.", emailResult);
 
       res.status(200).json({ message: "OTP sent successfully" });
     } catch (error) {
-      console.error("Error sending OTP:", error);
-      res.status(500).json({ error: "Failed to send OTP email" });
+      console.log("❌ Error sending OTP:", error);
+      res
+        .status(500)
+        .json({ error: "Failed to send OTP email", details: error.message });
     }
   }
 };
