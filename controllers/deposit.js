@@ -279,14 +279,14 @@ exports.reviewDeposit = async (req, res) => {
             } = require("../middlewares/utils");
 
             const mailOptions = {
-              from: "Investo <ishtiaqahmad427427@gmail.com>",
+              from: '"TrustyVest" <support@trustyvest.com>',
               to: depositor.email,
-              subject: "Deposit Approved - Investo",
+              subject: "TrustyVest [Deposit Approved]",
               html: depositNotificationTemplate(deposit, plan),
             };
 
             await transporter.sendMail(mailOptions);
-            console.log("Deposit approval email sent to:", depositor.email);
+            // console.log("Deposit approval email sent to:", depositor.email);
           }
         } catch (emailError) {
           console.error(
@@ -338,9 +338,9 @@ exports.reviewDeposit = async (req, res) => {
             } = require("../middlewares/utils");
 
             const mailOptions = {
-              from: "Investo <ishtiaqahmad427427@gmail.com>",
+              from: '"TrustyVest" <support@trustyvest.com>',
               to: depositor.email,
-              subject: "Deposit Approved - Investo",
+              subject: "TrustyVest [Deposit Approved]",
               html: depositNotificationTemplate(deposit, null), // Pass null for plan
             };
 
@@ -407,9 +407,9 @@ exports.reviewDeposit = async (req, res) => {
           const { depositRejectionTemplate } = require("../middlewares/utils");
 
           const mailOptions = {
-            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            from: '"TrustyVest" <support@trustyvest.com>',
             to: depositor.email,
-            subject: "Update on Your Deposit Request - Investo",
+            subject: "TrustyVest [Update on Your Deposit Request]",
             html: depositRejectionTemplate(deposit, adminNotes),
           };
 

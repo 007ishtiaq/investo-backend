@@ -465,9 +465,9 @@ exports.reviewWithdrawal = async (req, res) => {
         if (notificationsEnabled) {
           // Email content
           const mailOptions = {
-            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            from: '"TrustyVest" <support@trustyvest.com>',
             to: withdrawalUser.email,
-            subject: "Withdrawal Approved - Investo",
+            subject: "TrustyVest [Withdrawal Approved]",
             html: withdrawalNotificationTemplate(withdrawal),
           };
           // Send email using the transporter
@@ -504,9 +504,9 @@ exports.reviewWithdrawal = async (req, res) => {
         if (notificationsEnabled) {
           // Email content
           const mailOptions = {
-            from: "Investo <ishtiaqahmad427427@gmail.com>",
+            from: '"TrustyVest" <support@trustyvest.com>',
             to: withdrawalUser.email,
-            subject: "Update on Your Withdrawal Request - Investo",
+            subject: "TrustyVest [Update on Your Withdrawal Request]",
             html: withdrawalRejectionTemplate(withdrawal, adminNotes),
           };
           // Send email using the transporter

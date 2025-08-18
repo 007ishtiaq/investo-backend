@@ -22,6 +22,57 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// const otpEmailtemplate = (otpCode) => {
+//   return `
+//   <!DOCTYPE html>
+//   <html lang="en">
+//   <head>
+//     <meta charset="UTF-8" />
+//     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+//     <title>Your OTP Code</title>
+//   </head>
+//   <body style="margin:0; padding:0; background-color:#f5f7fa; font-family: Arial, sans-serif; color:#333;">
+//     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f5f7fa; padding: 30px 0;">
+//       <tr>
+//         <td align="center">
+//           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+//             <tr>
+//               <td style="background-color:#6c5dd3; padding: 20px; text-align:center;">
+//                 <h1 style="color:#ffffff; margin:0; font-size: 24px;">TrustyVest</h1>
+//               </td>
+//             </tr>
+//             <tr>
+//               <td style="padding: 30px;">
+//                 <h2 style="margin-top:0; color:#333;">Your One-Time Password (OTP)</h2>
+//                 <p style="font-size:16px; line-height:1.5; margin-bottom: 20px;">
+//                   Thank you for choosing <strong>TrustyVest</strong>.<br />
+//                   Use the OTP below to complete your sign-up process. This code will expire in <strong>15 minutes</strong>.
+//                 </p>
+//                 <div style="text-align:center; margin: 30px 0;">
+//                   <span style="display:inline-block; font-size:28px; letter-spacing:4px; background:#6c5dd3; color:#fff; padding:12px 24px; border-radius:6px; font-weight:bold;">
+//                     ${otpCode}
+//                   </span>
+//                 </div>
+//                 <p style="font-size:14px; color:#555;">
+//                   If you did not request this code, please ignore this email or contact our support team.
+//                 </p>
+//               </td>
+//             </tr>
+//             <tr>
+//               <td style="background-color:#f0f0f0; padding: 20px; text-align:center; font-size:12px; color:#888;">
+//                 © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br />
+//                 support@trustyvest.com
+//               </td>
+//             </tr>
+//           </table>
+//         </td>
+//       </tr>
+//     </table>
+//   </body>
+//   </html>
+//   `;
+// };
+
 const otpEmailtemplate = (otpCode) => {
   return `
   <!DOCTYPE html>
@@ -31,39 +82,49 @@ const otpEmailtemplate = (otpCode) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Your OTP Code</title>
   </head>
-  <body style="margin:0; padding:0; background-color:#f5f7fa; font-family: Arial, sans-serif; color:#333;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f5f7fa; padding: 30px 0;">
+  <body style="margin:0; padding:0; background-color:#f4f6fb; font-family: Arial, sans-serif; color:#333;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f4f6fb; padding: 30px 0;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+            
+            <!-- Header -->
             <tr>
-              <td style="background-color:#6c5dd3; padding: 20px; text-align:center;">
-                <h1 style="color:#ffffff; margin:0; font-size: 24px;">TrustyVest</h1>
+              <td style="background: linear-gradient(90deg, #6c5dd3, #3f8cff); padding: 20px; text-align:center;">
+                <h1 style="color:#ffffff; margin:0; font-size: 24px; font-weight:600;">TrustyVest</h1>
               </td>
             </tr>
+            
+            <!-- Body -->
             <tr>
               <td style="padding: 30px;">
-                <h2 style="margin-top:0; color:#333;">Your One-Time Password (OTP)</h2>
-                <p style="font-size:16px; line-height:1.5; margin-bottom: 20px;">
+                <h2 style="margin-top:0; color:#333; font-size:20px;">Your One-Time Password (OTP)</h2>
+                <p style="font-size:16px; line-height:1.6; margin-bottom: 25px;">
                   Thank you for choosing <strong>TrustyVest</strong>.<br />
                   Use the OTP below to complete your sign-up process. This code will expire in <strong>15 minutes</strong>.
                 </p>
-                <div style="text-align:center; margin: 30px 0;">
-                  <span style="display:inline-block; font-size:28px; letter-spacing:4px; background:#6c5dd3; color:#fff; padding:12px 24px; border-radius:6px; font-weight:bold;">
+                
+                <!-- OTP Box -->
+                <div style="text-align:center; margin: 35px 0;">
+                  <span style="display:inline-block; font-size:28px; letter-spacing:6px; background:#6c5dd3; color:#fff; padding:14px 28px; border-radius:8px; font-weight:bold; box-shadow:0 4px 10px rgba(108,93,211,0.3);">
                     ${otpCode}
                   </span>
                 </div>
-                <p style="font-size:14px; color:#555;">
-                  If you did not request this code, please ignore this email or contact our support team.
+
+                <p style="font-size:14px; color:#555; line-height:1.5;">
+                  If you did not request this code, please ignore this email or contact our support team immediately.
                 </p>
               </td>
             </tr>
+            
+            <!-- Footer -->
             <tr>
-              <td style="background-color:#f0f0f0; padding: 20px; text-align:center; font-size:12px; color:#888;">
+              <td style="background-color:#f8f9fa; padding: 20px; text-align:center; font-size:12px; color:#888;">
                 © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br />
-                support@trustyvest.com
+                <a href="mailto:support@trustyvest.com" style="color:#6c5dd3; text-decoration:none;">support@trustyvest.com</a>
               </td>
             </tr>
+            
           </table>
         </td>
       </tr>
@@ -358,62 +419,77 @@ const generateInvoicePDF = (order) => {
 };
 
 // Add this new function to your existing utils.js file
+
 const depositNotificationTemplate = (deposit, plan) => {
   return `
-    <h1>Your Deposit Has Been Approved!</h1>
-    <p>Hi there,</p>
-    <p>We're pleased to inform you that your deposit has been successfully approved and added to your wallet.</p>
-   
-    <h2>[Deposit ID: ${deposit._id.toString()}] (${
-    new Date(deposit.approvedAt).toISOString().split("T")[0]
-  })</h2>
+  <div style="font-family: Arial, sans-serif; background-color: #f4f6fb; padding: 20px; color: #333;">
     
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-      <tr style="background-color: #f8f9fa;">
-        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
-        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${deposit.amount.toFixed(
-          2
-        )}</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Approved</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Investment Plan:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
-          plan ? plan.name : "N/A"
-        }</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Duration:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
-          plan ? plan.durationInDays + " days" : "N/A"
-        }</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Expected ROI:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
-          plan ? plan.returnRate + "%" : "N/A"
-        }</td>
-      </tr>
-    </table>
-    <p>Your funds have been successfully added to your wallet and your investment has been activated.</p>
-    
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Login to your account to track your investments and earnings.</strong></p>
+    <!-- Header -->
+    <div style="background: linear-gradient(90deg, #6c5dd3, #3f8cff); padding: 20px; border-radius: 8px; text-align: center; color: #fff;">
+      <h1 style="margin: 0; font-size: 22px;">Your Deposit Has Been Approved!</h1>
     </div>
-    
-    <p>Thank you for investing with us. If you have any questions, please don't hesitate to contact our support team.</p>
-    <hr/>
-    <p>
-      Best regards,<br/>
-      Investo Team
-    </p>
+
+    <!-- Body -->
+    <div style="background: #fff; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+      <p>Hi there,</p>
+      <p>We're pleased to inform you that your deposit has been successfully approved and added to your wallet.</p>
+      
+      <h2 style="color: #6c5dd3; font-size: 18px; margin: 20px 0;">
+        [Deposit ID: ${deposit._id.toString()}] 
+        <span style="color: #3f8cff; font-size: 14px;">
+          (${new Date(deposit.approvedAt).toISOString().split("T")[0]})
+        </span>
+      </h2>
+
+      <!-- Deposit Details Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr style="background-color: #f4f6fb;">
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #6c5dd3;">Detail</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #6c5dd3;">Information</th>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Amount:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: #3f8cff;">
+            $${deposit.amount.toFixed(2)}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Status:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: green; font-weight: bold;">
+            Approved
+          </td>
+        </tr>
+      </table>
+
+      <p>Your funds have been successfully added to your wallet and your investment has been activated.</p>
+
+      <!-- Highlight Box -->
+      <div style="background-color: #f4f6fb; padding: 15px; border-left: 4px solid #6c5dd3; margin: 20px 0; border-radius: 5px;">
+        <p style="margin: 0; font-weight: bold; color: #333;">
+          Login to your account to track your investments and earnings.
+        </p>
+      </div>
+
+      <!-- Button -->
+      <div style="text-align: center; margin: 25px 0;">
+        <a href="https://www.trustyvest.com/login" 
+           style="background: linear-gradient(90deg, #6c5dd3, #3f8cff); 
+                  color: #fff; padding: 12px 25px; text-decoration: none; 
+                  font-weight: bold; border-radius: 6px; display: inline-block;">
+          Go to Dashboard
+        </a>
+      </div>
+
+      <p>Thank you for investing with us. If you have any questions, please don't hesitate to contact our support team.</p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;"/>
+
+      <!-- Footer -->
+     <p style="font-size: 14px; color: #555; text-align: center;">
+        © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br/>
+        <a href="mailto:support@trustyvest.com" style="color:#6c5dd3; text-decoration:none;">support@trustyvest.com</a>
+      </p>
+    </div>
+  </div>
   `;
 };
 const depositRejectionTemplate = (deposit, adminNotes) => {
@@ -486,59 +562,95 @@ const depositRejectionTemplate = (deposit, adminNotes) => {
 // Withdrawal approval email template
 const withdrawalNotificationTemplate = (withdrawal) => {
   return `
-    <h1>Your Withdrawal Has Been Processed!</h1>
-    <p>Hi there,</p>
-    <p>We're pleased to inform you that your withdrawal request has been approved and processed.</p>
-   
-    <h2>[Withdrawal ID: ${withdrawal._id.toString()}] (${
-    new Date(withdrawal.processedAt).toISOString().split("T")[0]
-  })</h2>
+  <div style="font-family: Arial, sans-serif; background-color: #f4f6fb; padding: 20px; color: #333;">
     
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-      <tr style="background-color: #f8f9fa;">
-        <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
-        <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${withdrawal.amount.toFixed(
-          2
-        )}</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Approved</td>
-      </tr>
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Payment Method:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
-          withdrawal.paymentMethod.charAt(0).toUpperCase() +
-          withdrawal.paymentMethod.slice(1).replace("_", " ")
-        }</td>
-      </tr>
-      ${
-        withdrawal.transactionId
-          ? `
-      <tr>
-        <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Transaction ID:</strong></td>
-        <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${withdrawal.transactionId}</td>
-      </tr>
-      `
-          : ""
-      }
-    </table>
-    <p>Your funds have been successfully sent to your specified withdrawal destination.</p>
-    
-    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-      <p style="margin: 0;"><strong>Login to your account to view your transaction history and initiate new transactions.</strong></p>
+    <!-- Header -->
+    <div style="background: linear-gradient(90deg, #6c5dd3, #3f8cff); padding: 20px; border-radius: 8px; text-align: center; color: #fff;">
+      <h1 style="margin: 0; font-size: 22px;">Your Withdrawal Has Been Processed!</h1>
     </div>
-    
-    <p>Thank you for using our platform. If you have any questions, please don't hesitate to contact our support team.</p>
-    <hr/>
-    <p>
-      Best regards,<br/>
-      Investo Team
-    </p>
+
+    <!-- Body -->
+    <div style="background: #fff; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+      <p>Hi there,</p>
+      <p>We're pleased to inform you that your withdrawal request has been approved and processed.</p>
+      
+      <h2 style="color: #6c5dd3; font-size: 18px; margin: 20px 0;">
+        [Withdrawal ID: ${withdrawal._id.toString()}] 
+        <span style="color: #3f8cff; font-size: 14px;">
+          (${new Date(withdrawal.processedAt).toISOString().split("T")[0]})
+        </span>
+      </h2>
+
+      <!-- Withdrawal Details Table -->
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr style="background-color: #f4f6fb;">
+          <th style="padding: 12px; text-align: left; border-bottom: 2px solid #6c5dd3;">Detail</th>
+          <th style="padding: 12px; text-align: right; border-bottom: 2px solid #6c5dd3;">Information</th>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Amount:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: #3f8cff;">
+            $${withdrawal.amount.toFixed(2)}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Status:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: green; font-weight: bold;">
+            Approved
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Payment Method:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: #6c5dd3; font-weight: bold;">
+            ${
+              withdrawal.paymentMethod.charAt(0).toUpperCase() +
+              withdrawal.paymentMethod.slice(1).replace("_", " ")
+            }
+          </td>
+        </tr>
+        ${
+          withdrawal.transactionId
+            ? `
+        <tr>
+          <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>Transaction ID:</strong></td>
+          <td style="padding: 12px; text-align: right; border-bottom: 1px solid #ddd; color: #3f8cff;">
+            ${withdrawal.transactionId}
+          </td>
+        </tr>
+        `
+            : ""
+        }
+      </table>
+
+      <p>Your funds have been successfully sent to your specified withdrawal destination.</p>
+
+      <!-- Highlight Box -->
+      <div style="background-color: #f4f6fb; padding: 15px; border-left: 4px solid #6c5dd3; margin: 20px 0; border-radius: 5px;">
+        <p style="margin: 0; font-weight: bold; color: #333;">
+          Login to your account to view your transaction history and initiate new transactions.
+        </p>
+      </div>
+
+      <!-- Button -->
+      <div style="text-align: center; margin: 25px 0;">
+        <a href="https://www.trustyvest.com/login" 
+           style="background: linear-gradient(90deg, #6c5dd3, #3f8cff); 
+                  color: #fff; padding: 12px 25px; text-decoration: none; 
+                  font-weight: bold; border-radius: 6px; display: inline-block;">
+          View Transactions
+        </a>
+      </div>
+
+      <p>Thank you for using our platform. If you have any questions, please don't hesitate to contact our support team.</p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;"/>
+
+      <!-- Footer -->
+     <p style="font-size: 14px; color: #555; text-align: center;">
+        © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br/>
+        <a href="mailto:support@trustyvest.com" style="color:#6c5dd3; text-decoration:none;">support@trustyvest.com</a>
+      </p>
+    </div>
+  </div>
   `;
 };
 
