@@ -22,57 +22,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// const otpEmailtemplate = (otpCode) => {
-//   return `
-//   <!DOCTYPE html>
-//   <html lang="en">
-//   <head>
-//     <meta charset="UTF-8" />
-//     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-//     <title>Your OTP Code</title>
-//   </head>
-//   <body style="margin:0; padding:0; background-color:#f5f7fa; font-family: Arial, sans-serif; color:#333;">
-//     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f5f7fa; padding: 30px 0;">
-//       <tr>
-//         <td align="center">
-//           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; background:#ffffff; border-radius:8px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-//             <tr>
-//               <td style="background-color:#6c5dd3; padding: 20px; text-align:center;">
-//                 <h1 style="color:#ffffff; margin:0; font-size: 24px;">TrustyVest</h1>
-//               </td>
-//             </tr>
-//             <tr>
-//               <td style="padding: 30px;">
-//                 <h2 style="margin-top:0; color:#333;">Your One-Time Password (OTP)</h2>
-//                 <p style="font-size:16px; line-height:1.5; margin-bottom: 20px;">
-//                   Thank you for choosing <strong>TrustyVest</strong>.<br />
-//                   Use the OTP below to complete your sign-up process. This code will expire in <strong>15 minutes</strong>.
-//                 </p>
-//                 <div style="text-align:center; margin: 30px 0;">
-//                   <span style="display:inline-block; font-size:28px; letter-spacing:4px; background:#6c5dd3; color:#fff; padding:12px 24px; border-radius:6px; font-weight:bold;">
-//                     ${otpCode}
-//                   </span>
-//                 </div>
-//                 <p style="font-size:14px; color:#555;">
-//                   If you did not request this code, please ignore this email or contact our support team.
-//                 </p>
-//               </td>
-//             </tr>
-//             <tr>
-//               <td style="background-color:#f0f0f0; padding: 20px; text-align:center; font-size:12px; color:#888;">
-//                 © ${new Date().getFullYear()} TrustyVest. All rights reserved.<br />
-//                 support@trustyvest.com
-//               </td>
-//             </tr>
-//           </table>
-//         </td>
-//       </tr>
-//     </table>
-//   </body>
-//   </html>
-//   `;
-// };
-
 const otpEmailtemplate = (otpCode) => {
   return `
   <!DOCTYPE html>
@@ -492,74 +441,6 @@ const depositNotificationTemplate = (deposit, plan) => {
   </div>
   `;
 };
-// const depositRejectionTemplate = (deposit, adminNotes) => {
-//   return `
-//     <h1>Update on Your Deposit Request</h1>
-//     <p>Hi there,</p>
-//     <p>We're writing to inform you about the status of your recent deposit request.</p>
-
-//     <h2>[Deposit ID: ${deposit._id.toString()}] (${
-//     new Date(deposit.approvedAt).toISOString().split("T")[0]
-//   })</h2>
-
-//     <div style="background-color: #fff8f8; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; border-radius: 4px;">
-//       <p style="margin: 0; color: #dc3545; font-weight: bold;">Your deposit request has not been approved at this time.</p>
-//     </div>
-
-//     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-//       <tr style="background-color: #f8f9fa;">
-//         <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
-//         <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${deposit.amount.toFixed(
-//           2
-//         )}</td>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6; color: #dc3545;">Rejected</td>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Date Reviewed:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${new Date(
-//           deposit.approvedAt
-//         ).toLocaleString()}</td>
-//       </tr>
-//     </table>
-//     ${
-//       adminNotes
-//         ? `
-//     <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-//       <p style="margin: 0 0 10px 0;"><strong>Additional Information:</strong></p>
-//       <p style="margin: 0;">${adminNotes}</p>
-//     </div>
-//     `
-//         : ""
-//     }
-//     <p>You can try submitting a new deposit request or contact our customer support if you need further assistance with this matter.</p>
-
-//     <div style="padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #ddd;">
-//       <p style="margin: 0;"><strong>What to do next?</strong></p>
-//       <ul style="margin-top: 10px; padding-left: 20px;">
-//         <li>Check if your payment details were correct</li>
-//         <li>Make sure your deposit meets our minimum requirements</li>
-//         <li>Submit a new deposit request if needed</li>
-//         <li>Contact our support team for assistance</li>
-//       </ul>
-//     </div>
-
-//     <p>Thank you for your understanding. We value your business and look forward to serving you better.</p>
-//     <hr/>
-//     <p>
-//       Best regards,<br/>
-//       Investo Team
-//     </p>
-//   `;
-// };
-
-// Withdrawal approval email template
 
 const depositRejectionTemplate = (deposit, adminNotes) => {
   return `
@@ -763,55 +644,6 @@ const withdrawalNotificationTemplate = (withdrawal) => {
   </div>
   `;
 };
-
-// const withdrawalRejectionTemplate = (withdrawal, adminNotes) => {
-//   return `
-//     <h1>Update on Your Withdrawal Request</h1>
-//     <p>Hi there,</p>
-//     <p>We're writing to inform you that your recent withdrawal request has been reviewed and could not be processed at this time.</p>
-
-//     <h2>[Withdrawal ID: ${withdrawal._id.toString()}]</h2>
-
-//     <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-//       <tr style="background-color: #f8f9fa;">
-//         <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">Detail</th>
-//         <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6;">Information</th>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Amount:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">$${withdrawal.amount.toFixed(
-//           2
-//         )}</td>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Status:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">Rejected</td>
-//       </tr>
-//       <tr>
-//         <td style="padding: 12px; border-bottom: 1px solid #dee2e6;"><strong>Payment Method:</strong></td>
-//         <td style="padding: 12px; text-align: right; border-bottom: 1px solid #dee2e6;">${
-//           withdrawal.paymentMethod.charAt(0).toUpperCase() +
-//           withdrawal.paymentMethod.slice(1).replace("_", " ")
-//         }</td>
-//       </tr>
-//     </table>
-
-//     <div style="background-color: #fff8f8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 3px solid #dc3545;">
-//       <p style="margin: 0 0 10px 0;"><strong>Reason for rejection:</strong></p>
-//       <p style="margin: 0;">${
-//         adminNotes ||
-//         "No specific reason provided. Please contact support for more information."
-//       }</p>
-//     </div>
-
-//     <p>Your funds remain in your wallet and are available for future withdrawals. If you have any questions about this decision or need assistance with a new withdrawal request, please contact our support team.</p>
-//     <hr/>
-//     <p>
-//       Best regards,<br/>
-//       Investo Team
-//     </p>
-//   `;
-// };
 
 const withdrawalRejectionTemplate = (withdrawal, adminNotes) => {
   return `
