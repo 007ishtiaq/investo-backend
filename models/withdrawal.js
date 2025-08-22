@@ -1,4 +1,3 @@
-// server/models/withdrawal.js
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Schema;
 
@@ -12,7 +11,7 @@ const withdrawalSchema = new mongoose.Schema(
     amount: {
       type: Number,
       required: true,
-      min: 0.01,
+      min: 1,
     },
     currency: {
       type: String,
@@ -26,16 +25,16 @@ const withdrawalSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["bitcoin", "ethereum", "litecoin", "bank_transfer"],
+      enum: [
+        "USDT (TRC20 - Tron)",
+        "USDT (BEP20 - BNB Smart Chain)",
+        "USDT (ERC20 - Ethereum)",
+      ],
       required: true,
     },
     walletAddress: {
       type: String,
-      // Required for crypto withdrawals
-    },
-    bankDetails: {
-      type: String,
-      // Required for bank transfers
+      trim: true,
     },
     adminNotes: {
       type: String,
@@ -44,9 +43,6 @@ const withdrawalSchema = new mongoose.Schema(
       type: ObjectId,
       ref: "User",
     },
-    processedAt: {
-      type: Date,
-    },
     transactionId: {
       type: String,
       // For tracking the transaction ID after processing
@@ -54,29 +50,5 @@ const withdrawalSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// Pre-save validation for required fields based on payment method
-withdrawalSchema.pre("save", function (next) {
-  // For crypto withdrawals, wallet address is required
-  if (
-    ["bitcoin", "ethereum", "litecoin"].includes(this.paymentMethod) &&
-    !this.walletAddress
-  ) {
-    return next(
-      new Error(
-        `Wallet address is required for ${this.paymentMethod} withdrawals`
-      )
-    );
-  }
-
-  // For bank transfers, bank details are required
-  if (this.paymentMethod === "bank_transfer" && !this.bankDetails) {
-    return next(
-      new Error("Bank details are required for bank transfer withdrawals")
-    );
-  }
-
-  next();
-});
 
 module.exports = mongoose.model("Withdrawal", withdrawalSchema);

@@ -253,18 +253,112 @@ exports.getTransactionHistory = async (req, res) => {
 };
 
 // Submit withdrawal request
+// exports.withdraw = async (req, res) => {
+//   try {
+//     const { amount, paymentMethod, walletAddress, bankDetails } = req.body;
+//     console.log(
+//       "hitting withdraw",
+//       amount,
+//       paymentMethod,
+//       walletAddress,
+//       bankDetails
+//     );
+
+//     // Validate input
+//     if (!amount || !paymentMethod) {
+//       return res
+//         .status(400)
+//         .json({ error: "Amount and payment method are required" });
+//     }
+
+//     if (parseFloat(amount) <= 0) {
+//       return res
+//         .status(400)
+//         .json({ error: "Amount must be greater than zero" });
+//     }
+
+//     // Validate payment method specific details
+//     if (
+//       ["bitcoin", "ethereum", "litecoin"].includes(paymentMethod) &&
+//       !walletAddress
+//     ) {
+//       return res.status(400).json({
+//         error: `Wallet address is required for ${paymentMethod} withdrawals`,
+//       });
+//     }
+
+//     if (paymentMethod === "bank_transfer" && !bankDetails) {
+//       return res.status(400).json({
+//         error: "Bank details are required for bank transfer withdrawals",
+//       });
+//     }
+
+//     // Check if user has a wallet
+//     const wallet = await Wallet.findOne({ email: req.user.email });
+
+//     if (!wallet) {
+//       return res.status(404).json({ error: "Wallet not found" });
+//     }
+
+//     // Check if user has sufficient balance
+//     if (parseFloat(amount) > wallet.balance) {
+//       return res.status(400).json({ error: "Insufficient wallet balance" });
+//     }
+
+//     // Get user ID
+//     const user = await User.findOne({ email: req.user.email });
+
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // Create withdrawal request
+//     const newWithdrawal = new Withdrawal({
+//       user: user._id,
+//       amount: parseFloat(amount),
+//       paymentMethod,
+//       walletAddress,
+//       bankDetails,
+//       status: "pending",
+//     });
+
+//     await newWithdrawal.save();
+
+//     // Create a transaction record with pending status
+//     await new Transaction({
+//       email: user.email,
+//       walletId: wallet._id,
+//       amount: parseFloat(amount),
+//       type: "debit", // This will be a debit when approved
+//       status: "pending", // Start as pending until approved
+//       source: "withdrawal",
+//       reference: newWithdrawal._id.toString(),
+//       description: `Withdrawal request under verification - ${paymentMethod}`,
+//       metadata: {
+//         paymentMethod: paymentMethod,
+//         walletAddress: walletAddress || null,
+//         bankDetails: bankDetails || null,
+//       },
+//     }).save();
+
+//     res.json({
+//       success: true,
+//       message: "Withdrawal request submitted successfully",
+//       withdrawal: newWithdrawal,
+//     });
+//   } catch (error) {
+//     console.error("WITHDRAWAL REQUEST ERROR", error);
+//     res.status(500).json({ error: "Error processing withdrawal request" });
+//   }
+// };
+
 exports.withdraw = async (req, res) => {
   try {
-    const { amount, paymentMethod, walletAddress, bankDetails } = req.body;
-    console.log(
-      "hitting withdraw",
-      amount,
-      paymentMethod,
-      walletAddress,
-      bankDetails
-    );
+    const { amount, paymentMethod, walletAddress } = req.body;
 
-    // Validate input
+    console.log("Withdraw request:", amount, paymentMethod, walletAddress);
+
+    // 1. Validate required fields
     if (!amount || !paymentMethod) {
       return res
         .status(400)
@@ -277,67 +371,76 @@ exports.withdraw = async (req, res) => {
         .json({ error: "Amount must be greater than zero" });
     }
 
-    // Validate payment method specific details
+    // 2. Map short codes → full enum values
+    const paymentMethodMap = {
+      TRC20: "USDT (TRC20 - Tron)",
+      BEP20: "USDT (BEP20 - BNB Smart Chain)",
+      ERC20: "USDT (ERC20 - Ethereum)",
+      bitcoin: "Bitcoin",
+      ethereum: "Ethereum",
+      litecoin: "Litecoin",
+    };
+
+    const finalPaymentMethod = paymentMethodMap[paymentMethod] || null;
+
+    if (!finalPaymentMethod) {
+      return res.status(400).json({ error: "Invalid payment method" });
+    }
+
+    // 3. Validate wallet address for crypto withdrawals
     if (
-      ["bitcoin", "ethereum", "litecoin"].includes(paymentMethod) &&
+      [
+        "Bitcoin",
+        "Ethereum",
+        "Litecoin",
+        "USDT (TRC20 - Tron)",
+        "USDT (BEP20 - BNB Smart Chain)",
+        "USDT (ERC20 - Ethereum)",
+      ].includes(finalPaymentMethod) &&
       !walletAddress
     ) {
       return res.status(400).json({
-        error: `Wallet address is required for ${paymentMethod} withdrawals`,
+        error: `Wallet address is required for ${finalPaymentMethod} withdrawals`,
       });
     }
 
-    if (paymentMethod === "bank_transfer" && !bankDetails) {
-      return res.status(400).json({
-        error: "Bank details are required for bank transfer withdrawals",
-      });
-    }
-
-    // Check if user has a wallet
+    // 4. Fetch wallet
     const wallet = await Wallet.findOne({ email: req.user.email });
+    if (!wallet) return res.status(404).json({ error: "Wallet not found" });
 
-    if (!wallet) {
-      return res.status(404).json({ error: "Wallet not found" });
-    }
-
-    // Check if user has sufficient balance
+    // 5. Check balance
     if (parseFloat(amount) > wallet.balance) {
       return res.status(400).json({ error: "Insufficient wallet balance" });
     }
 
-    // Get user ID
+    // 6. Get user
     const user = await User.findOne({ email: req.user.email });
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    // Create withdrawal request
+    // 7. Create withdrawal request
     const newWithdrawal = new Withdrawal({
       user: user._id,
       amount: parseFloat(amount),
-      paymentMethod,
+      paymentMethod: finalPaymentMethod,
       walletAddress,
-      bankDetails,
       status: "pending",
     });
 
     await newWithdrawal.save();
 
-    // Create a transaction record with pending status
+    // 8. Create pending transaction
     await new Transaction({
       email: user.email,
       walletId: wallet._id,
       amount: parseFloat(amount),
-      type: "debit", // This will be a debit when approved
-      status: "pending", // Start as pending until approved
+      type: "debit",
+      status: "pending",
       source: "withdrawal",
       reference: newWithdrawal._id.toString(),
-      description: `Withdrawal request under verification - ${paymentMethod}`,
+      description: `Withdrawal request under verification - ${finalPaymentMethod}`,
       metadata: {
-        paymentMethod: paymentMethod,
+        paymentMethod: finalPaymentMethod,
         walletAddress: walletAddress || null,
-        bankDetails: bankDetails || null,
       },
     }).save();
 
@@ -351,6 +454,7 @@ exports.withdraw = async (req, res) => {
     res.status(500).json({ error: "Error processing withdrawal request" });
   }
 };
+
 // Get user's withdrawal history
 exports.getWithdrawals = async (req, res) => {
   try {

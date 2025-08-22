@@ -244,11 +244,20 @@ exports.getUserInvestments = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching user investments:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch user investments",
-      error: err.message,
-    });
+
+    if (err.message && err.message.includes("401")) {
+      res.status(500).json({
+        success: false,
+        message: "Session Expired, Please reload the page",
+        error: err.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch user investments",
+        error: err.message,
+      });
+    }
   }
 };
 
